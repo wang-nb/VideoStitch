@@ -1,7 +1,7 @@
 #ifndef __MY_COMPOSER_GPU_H__
 #define __MY_COMPOSER_GPU_H__
 
-#include "gutil.h"
+#include "../offline/gutil.h"
 
 extern int testGPU();
 

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <malloc.h>
 
-#include "gutil.h"
+#include "../offline/gutil.h"
 
 typedef struct _point
 {

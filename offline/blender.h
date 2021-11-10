@@ -1,9 +1,6 @@
 #ifndef __VIDEO_STITCH_MY_BLENDER_H__
 #define __VIDEO_STITCH_MY_BLENDER_H__
 
-
-#include "stdafx.h"
-
 #include "opencv2/opencv_modules.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/stitching/detail/blenders.hpp"

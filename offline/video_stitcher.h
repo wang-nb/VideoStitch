@@ -16,7 +16,7 @@
 #include <opencv2/stitching/warpers.hpp>
 
 #include "blender.h"
-#include "exposure_compensator.h"
+#include "logging.hpp"
 
 using namespace std;
 using namespace cv;
@@ -57,11 +57,7 @@ class MyVideoStitcher
 public:
 	MyVideoStitcher();
 	~MyVideoStitcher();
-
-	void setPreview(bool is_preview) { is_preview_ = is_preview; };
-	void setSave(bool is_save) { is_save_video_ = is_save; };
 	void setRange(int start, int end = -1) { start_frame_index_ = std::max(1, start) - 1; end_frame_index_ = end; };
-	void setTryGPU(bool try_gpu) { is_try_gpu_ = try_gpu; };
 	void setTrim(bool is_trim) {
 		if(is_trim)
 			trim_type_ = MyVideoStitcher::TRIM_AUTO;
@@ -74,8 +70,6 @@ public:
 	int stitch(vector<VideoCapture> &captures, string &writer_file_name);
 	int stitchImage(vector<Mat> &src, Mat &pano);
 
-	void setDebugDirPath(string dir_path);
-
 	void saveCameraParam(string filename);
 	int loadCameraParam(string filename);
 
@@ -84,11 +78,9 @@ protected:
 
 private:
 	int Prepare(vector<Mat> &src);
-	int PrepareAPAP(vector<Mat> &src);
 	int PrepareClassical(vector<Mat> &src);
 	int StitchFrame(vector<Mat> &src, Mat &dst);
 	int StitchFrameCPU(vector<Mat> &src, Mat &dst);
-	int StitchFrameGPU(vector<Mat> &src, Mat &dst);
 
 	void InitMembers(int num_images);
 
@@ -154,11 +146,7 @@ private:
 	enum { TRIM_NO, TRIM_AUTO, TRIM_RECTANGLE };
 
 	/* 参数 */
-	bool is_preview_;
-	bool is_save_video_;
 	int start_frame_index_, end_frame_index_;
-	bool is_try_gpu_;
-	bool is_debug_;
 	int trim_type_;
 	Rect trim_rect_;
 
@@ -192,13 +180,11 @@ private:
 	vector<Mat> final_warped_masks_;	//warp的mask
 	vector<Mat> xmaps_;
 	vector<Mat> ymaps_;
-	vector<Mat_<float>> ec_weight_maps_;		//曝光补偿
 	vector<Mat> blend_weight_maps_;
 	vector<Mat_<float>> total_weight_maps_;
 	vector<Mat> final_blend_masks_;	//blend_mask = seam_mask & warp_mask
 	double view_angle_;
 
-	MyExposureCompensator compensator_;
 	MyFeatherBlender blender_;
 
 	/* 缓存 */
@@ -207,9 +193,6 @@ private:
 	int cur_frame_idx_;
 	int parallel_num_;
 	bool is_prepared_;
-
-	/* Debug */
-	string debug_dir_path_;
 
 };
 

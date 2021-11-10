@@ -10,7 +10,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/stitching/stitcher.hpp"
 
-#include "video_stitcher.h"
+#include "../offline/video_stitcher.h"
 
 using namespace cv;
 using namespace std;

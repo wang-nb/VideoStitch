@@ -16,7 +16,7 @@ typedef struct _cpu2gpu_init_data
 	float *ymap;
 
 	float *blend_weight;
-	float *ec_weight;
+//	float *ec_weight;
 	float *total_weight;
 }
 C2GInitData;

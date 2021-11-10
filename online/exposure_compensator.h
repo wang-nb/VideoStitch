@@ -1,8 +1,5 @@
 #ifndef __VIDEO_STITCH_MY_EXPOSURE_COMPENSATOR_H__
 #define __VIDEO_STITCH_MY_EXPOSURE_COMPENSATOR_H__
-
-#include "stdafx.h"
-
 #include "opencv2/opencv_modules.hpp"
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
