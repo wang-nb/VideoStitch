@@ -4,13 +4,15 @@
 #include <string>
 
 #include "GetRemapLUT.h"
+using namespace std;
+using namespace cv;
 
 StitcherRemap::StitcherRemap()
 {
     trim_type_ = StitcherRemap::TRIM_NO;
 
-    work_megapix_       = 1.0;//-1;//
-    seam_megapix_       = 0.2;//-1;//
+    work_megapix_       = 1.0f;//-1;//
+    seam_megapix_       = 0.2f;//-1;//
     is_prepared_        = false;
     conf_thresh_        = 1.f;
     features_type_      = "orb";//"surf";//
@@ -25,12 +27,12 @@ StitcherRemap::StitcherRemap()
 
 int StitcherRemap::stitch(std::vector<cv::Mat> &src, string &save_path)
 {
-    int video_num = src.size();
+    size_t video_num = src.size();
     Mat dst;
-    //×öÒ»Ğ©³õÊ¼»¯£¬²¢ÇÒÈ·¶¨½á¹ûÊÓÆµµÄ·Ö±æÂÊ
+    //åšä¸€äº›åˆå§‹åŒ–ï¼Œå¹¶ä¸”ç¡®å®šç»“æœè§†é¢‘çš„åˆ†è¾¨ç‡
 
     int prepare_status = Prepare(src);
-    //	ÏÈÓÃORBÌØÕ÷²âÊÔ£¬´íÎóµÄ»°ÔÙÊ¹ÓÃSURF£¬ÈÔÈ»´íÎóÔò±¨´í£¬ÊäÈëÊÓÆµ²»·ûºÏÌõ¼ş
+    //	å…ˆç”¨ORBç‰¹å¾æµ‹è¯•ï¼Œé”™è¯¯çš„è¯å†ä½¿ç”¨SURFï¼Œä»ç„¶é”™è¯¯åˆ™æŠ¥é”™ï¼Œè¾“å…¥è§†é¢‘ä¸ç¬¦åˆæ¡ä»¶
     if (prepare_status == STITCH_CONFIG_ERROR) {
         cout << "video stitch config error!" << endl;
         return -1;
@@ -40,34 +42,34 @@ int StitcherRemap::stitch(std::vector<cv::Mat> &src, string &save_path)
 #ifdef STITCHER_DEBUG
     imwrite("data/res.jpg", dst);
 #endif
-    string window_name = "ÊÓÆµÆ´½Ó";
+    string window_name = "è§†é¢‘æ‹¼æ¥";
     namedWindow(window_name);
     imshow(window_name, dst);
     cout << "\nStitch over" << endl;
-    cout << "\tfull view angle is " << cvRound(view_angle_) << "¡ã" << endl;
+    cout << "\tfull view angle is " << cvRound(view_angle_) << "Â°" << endl;
     cout << "\tcenter: (" << -dst_roi_.x << ", " << -dst_roi_.y << ")" << endl;
     cv::waitKey(0);
     return 0;
 }
 
 /*
- *	³õÊ¼Í¼Ïñ¿ÉÄÜ·Ö±æÂÊºÜ¸ß£¬ÏÈ×öÒ»²½½µ²ÉÑù£¬¿ÉÒÔÌá¸ßÊ±¼äĞ§ÂÊ
+ *	åˆå§‹å›¾åƒå¯èƒ½åˆ†è¾¨ç‡å¾ˆé«˜ï¼Œå…ˆåšä¸€æ­¥é™é‡‡æ ·ï¼Œå¯ä»¥æé«˜æ—¶é—´æ•ˆç‡
  */
 void StitcherRemap::SetScales(vector<Mat> &src)
 {
     if (work_megapix_ < 0)
-        work_scale_ = 1.0;
+        work_scale_ = 1.0f;
     else
-        work_scale_ = min(1.0, sqrt(work_megapix_ * 1e6 / src[0].size().area()));
+        work_scale_ = min(1.0f, sqrt(work_megapix_ * 1e6f / src[0].size().area()));
 
     if (seam_megapix_ < 0)
-        seam_scale_ = 1.0;
+        seam_scale_ = 1.0f;
     else
-        seam_scale_ = min(1.0, sqrt(seam_megapix_ * 1e6 / src[0].size().area()));
+        seam_scale_ = min(1.0f, sqrt(seam_megapix_ * 1e6f / src[0].size().area()));
 }
 
 /*
- *	ÌØÕ÷ÌáÈ¡£¬Ö§³ÖSURFºÍORB
+ *	ç‰¹å¾æå–ï¼Œæ”¯æŒSURFå’ŒORB
  */
 int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &features)
 {
@@ -81,7 +83,7 @@ int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &feature
         return STITCH_CONFIG_ERROR;
     }
 
-    int num_images = static_cast<int>(src.size());
+    int num_images = (int)(src.size());
     Mat full_img, img;
 
     for (int i = 0; i < num_images; ++i) {
@@ -104,10 +106,10 @@ int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &feature
 }
 
 /*
- * ÌØÕ÷Æ¥Åä£¬È»ºóÈ¥³ıÔëÉùÍ¼Æ¬¡£±¾´úÂëÊµÏÖÊ±£¬Ò»µ©³öÏÖÔëÉùÍ¼Æ¬£¬¾ÍÖÕÖ¹Ëã·¨
- * ·µ»ØÖµ£º
- *		0	¡ª¡ª	Õı³£
- *		-2	¡ª¡ª	´æÔÚÔëÉùÍ¼Æ¬
+ * ç‰¹å¾åŒ¹é…ï¼Œç„¶åå»é™¤å™ªå£°å›¾ç‰‡ã€‚æœ¬ä»£ç å®ç°æ—¶ï¼Œä¸€æ—¦å‡ºç°å™ªå£°å›¾ç‰‡ï¼Œå°±ç»ˆæ­¢ç®—æ³•
+ * è¿”å›å€¼ï¼š
+ *		0	â€”â€”	æ­£å¸¸
+ *		-2	â€”â€”	å­˜åœ¨å™ªå£°å›¾ç‰‡
  */
 int StitcherRemap::MatchImages(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches)
 {
@@ -117,11 +119,11 @@ int StitcherRemap::MatchImages(vector<ImageFeatures> &features, vector<MatchesIn
     matcher(features, pairwise_matches);
     matcher.collectGarbage();
 
-    // È¥³ıÔëÉùÍ¼Ïñ
+    // å»é™¤å™ªå£°å›¾åƒ
     vector<int> indices = leaveBiggestComponent(features, pairwise_matches, conf_thresh_);
+    // ä¸€æ—¦å‡ºç°å™ªå£°å›¾ç‰‡ï¼Œå°±ç»ˆæ­¢ç®—æ³•
 
-    // Ò»µ©³öÏÖÔëÉùÍ¼Æ¬£¬¾ÍÖÕÖ¹Ëã·¨
-    int num_images = static_cast<int>(indices.size());
+    int num_images = (int)(indices.size());
     if (num_images != total_num_images) {
         fprintf(stderr, " videos are invaild");
         return STITCH_NOISE;
@@ -131,7 +133,7 @@ int StitcherRemap::MatchImages(vector<ImageFeatures> &features, vector<MatchesIn
 }
 
 /*
- * ÉãÏñ»ú±ê¶¨
+ * æ‘„åƒæœºæ ‡å®š
  */
 int StitcherRemap::CalibrateCameras(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
 {
@@ -142,7 +144,7 @@ int StitcherRemap::CalibrateCameras(vector<ImageFeatures> &features, vector<Matc
 
     estimator(features, pairwise_matches, cameras);
 
-    for (size_t i = 0; i < cameras.size(); ++i) {
+    for (size_t i = 0; i < (int)cameras.size(); ++i) {
         Mat R;
         cameras[i].R.convertTo(R, CV_32F);
         cameras[i].R = R;
@@ -193,14 +195,14 @@ int StitcherRemap::CalibrateCameras(vector<ImageFeatures> &features, vector<Matc
 }
 
 /*
- *	¼ÆËãË®Æ½ÊÓ½Ç£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñÊÊÓÃÓÚÆ½ÃæÍ¶Ó°
+ *	è®¡ç®—æ°´å¹³è§†è§’ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦é€‚ç”¨äºå¹³é¢æŠ•å½±
  */
 double StitcherRemap::GetViewAngle(vector<Mat> &src, vector<CameraParams> &cameras)
 {
     Ptr<WarperCreator> warper_creator = new cv::CylindricalWarper();
     Ptr<RotationWarper> warper        = warper_creator->create(median_focal_len_);
 
-    int num_images = static_cast<int>(src.size());
+    int num_images = (int) (src.size());
     vector<Point> corners;
     vector<Size> sizes;
     for (int i = 0; i < num_images; ++i) {
@@ -216,7 +218,7 @@ double StitcherRemap::GetViewAngle(vector<Mat> &src, vector<CameraParams> &camer
 }
 
 /*
- *	¼ÆËã½Ó·ìÖ®Ç°£¬ĞèÒªÏÈ°ÑÔ­Ê¼Í¼ÏñºÍmask°´ÕÕÏà»ú²ÎÊıÍ¶Ó°
+ *	è®¡ç®—æ¥ç¼ä¹‹å‰ï¼Œéœ€è¦å…ˆæŠŠåŸå§‹å›¾åƒå’ŒmaskæŒ‰ç…§ç›¸æœºå‚æ•°æŠ•å½±
  */
 int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &masks_warped, vector<Mat> &images_warped)
 {
@@ -254,7 +256,7 @@ int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, 
     }
 
     if (warper_creator_.empty()) {
-        cout << "Can't create the following warper '" << warp_type_ << "'\n";
+        std::cout << "Can not create the following warper '" << warp_type_ << "'\n";
         return STITCH_CONFIG_ERROR;
     }
 
@@ -262,7 +264,7 @@ int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, 
     Ptr<RotationWarper> warper = warper_creator_->create(warp_scale);
     int full_pano_width        = cvFloor(warp_scale * 2 * CV_PI);
 
-    int num_images = static_cast<int>(src.size());
+    int num_images = (int) (src.size());
     Mat img, mask;
     for (int i = 0; i < num_images; ++i) {
         Mat_<float> K;
@@ -285,7 +287,7 @@ int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, 
         Size tmp_size;
         warper->warp(mask, K, cameras[i].R, INTER_NEAREST, BORDER_CONSTANT, tmp_mask_warped);
 
-        //	¿¼ÂÇ360¶ÈÆ´½ÓµÄÌØÊâÇé¿ö
+        //	è€ƒè™‘360åº¦æ‹¼æ¥çš„ç‰¹æ®Šæƒ…å†µ
         tmp_corner = warper->warp(img, K, cameras[i].R, INTER_LINEAR, BORDER_REFLECT, tmp_img_warped);
         //cout << "warped width = " << tmp_mask_warped.cols << ", pano width = " << full_pano_width << endl;
         if (abs(tmp_mask_warped.cols - full_pano_width) <= 10) {
@@ -319,7 +321,7 @@ int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, 
 }
 
 /*
- *	½â¾ö360¡ãÆ´½ÓÎÊÌâ¡£¶ÔÓÚºá¿ç360¡ã½Ó·ìµÄÍ¼Æ¬£¬ÕÒµ½×î¿íµÄinpaintÇøÓò[x1, x2]
+ *	è§£å†³360Â°æ‹¼æ¥é—®é¢˜ã€‚å¯¹äºæ¨ªè·¨360Â°æ¥ç¼çš„å›¾ç‰‡ï¼Œæ‰¾åˆ°æœ€å®½çš„inpaintåŒºåŸŸ[x1, x2]
  */
 int StitcherRemap::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
 {
@@ -332,8 +334,8 @@ int StitcherRemap::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
             if (mask_ptr[y * mask.cols + x] != 0)
                 sum_row[x] = 1;
 
-    int cur_x1, cur_x2, max_range = 0;
-    for (int x = 1; x < mask.cols; x++)//	×î×ó±ß¿Ï¶¨ÊÇ1
+    int cur_x1 = 0, cur_x2 = 0, max_range = 0;
+    for (int x = 1; x < mask.cols; x++)//	æœ€å·¦è¾¹è‚¯å®šæ˜¯1
     {
         if (sum_row[x - 1] == 1 && sum_row[x] == 0)
             cur_x1 = x;
@@ -349,11 +351,11 @@ int StitcherRemap::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
 }
 
 /*
- *	¼ÆËã½Ó·ì
+ *	è®¡ç®—æ¥ç¼
  */
 int StitcherRemap::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_warped)
 {
-    int num_images = static_cast<int>(images_warped.size());
+    int num_images = (int) (images_warped.size());
     vector<UMat> images_warped_f(num_images);
     vector<UMat> masks_warped_f(num_images);
     for (int i = 0; i < num_images; ++i) {
@@ -387,7 +389,7 @@ int StitcherRemap::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_warpe
 }
 
 /*
- *	»Ö¸´Ô­Ê¼Í¼Ïñ´óĞ¡
+ *	æ¢å¤åŸå§‹å›¾åƒå¤§å°
  */
 int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &seam_masks)
 {
@@ -398,7 +400,7 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
     //cout << "median focal length: " << median_focal_len_ << endl;
 
     // Update corners and sizes
-    int num_images = static_cast<int>(src.size());
+    int num_images = (int) (src.size());
     Mat tmp_mask, tmp_dilated_mask, tmp_seam_mask;
     corners_.clear();
     sizes_.clear();
@@ -411,7 +413,8 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
         Mat K;
         cameras[src_idx].K().convertTo(K, CV_32F);
 
-        // ¼ÆËã×îÖÕimage warpµÄ×ø±êÓ³Éä¾ØÕó
+        // è®¡ç®—æœ€ç»ˆimage warpçš„åæ ‡æ˜ å°„çŸ©é˜µ
+
         Mat tmp_xmap, tmp_ymap;
         warper->buildMaps(src[src_idx].size(), K, cameras[src_idx].R, tmp_xmap, tmp_ymap);
 
@@ -421,7 +424,7 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
         tmp_mask.setTo(Scalar::all(255));
         Point tmp_corner = warper->warp(tmp_mask, K, cameras[src_idx].R, INTER_NEAREST, BORDER_CONSTANT, tmp_mask_warped);
 
-        //	¿¼ÂÇ360¶ÈÆ´½ÓµÄÌØÊâÇé¿ö
+        //	è€ƒè™‘360åº¦æ‹¼æ¥çš„ç‰¹æ®Šæƒ…å†µ
         if (abs(tmp_mask_warped.cols - full_pano_width) <= 10) {
             int x1, x2;
             FindWidestInpaintRange(tmp_mask_warped, x1, x2);
@@ -439,8 +442,8 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
                 tmp_ymap(rect[j]).copyTo(ymap[j]);
                 ymaps_.push_back(ymap[j]);
 
-                // ¼ÆËã×ÜµÄmask = warp_mask & seam_mask
-                dilate(seam_masks[seam_idx], tmp_dilated_mask, Mat());//ÅòÕÍ
+                // è®¡ç®—æ€»çš„mask = warp_mask & seam_mask
+                dilate(seam_masks[seam_idx], tmp_dilated_mask, Mat());//è†¨èƒ€
                 resize(tmp_dilated_mask, tmp_seam_mask, rect[j].size());
                 final_blend_masks_.push_back(warped_mask[j] & tmp_seam_mask);
 
@@ -460,8 +463,8 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
             Size sz = tmp_mask_warped.size();
             sizes_.push_back(sz);
 
-            //	¼ÆËã×ÜµÄmask = warp_mask & seam_mask
-            dilate(seam_masks[seam_idx], tmp_dilated_mask, Mat());//ÅòÕÍ
+            //	è®¡ç®—æ€»çš„mask = warp_mask & seam_mask
+            dilate(seam_masks[seam_idx], tmp_dilated_mask, Mat());//è†¨èƒ€
             resize(tmp_dilated_mask, tmp_seam_mask, sz);
             final_blend_masks_.push_back(tmp_mask_warped & tmp_seam_mask);
 
@@ -472,7 +475,7 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
     }
 
     dst_roi_      = resultRoi(corners_, sizes_);
-    int parts_num = sizes_.size();
+    int parts_num = (int)sizes_.size();
     final_warped_images_.resize(parts_num);
     for (int j = 0; j < parts_num; j++)
         final_warped_images_[j].create(sizes_[j], src[src_indices_[j]].type());
@@ -485,16 +488,16 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
 }
 
 /*
- *	Æ´½Ó½á¹û¿ÉÄÜÊÇ²»¹æÔòĞÎ×´£¬²Ã¼ô³É·½ĞÎ
+ *	æ‹¼æ¥ç»“æœå¯èƒ½æ˜¯ä¸è§„åˆ™å½¢çŠ¶ï¼Œè£å‰ªæˆæ–¹å½¢
  */
 int StitcherRemap::TrimRect(Rect rect)
 {
-    // ¼ÆËãÃ¿·ùÍ¼ÏñµÄrect£¬²¢ĞŞ¸ÄxmapºÍymap
+    // è®¡ç®—æ¯å¹…å›¾åƒçš„rectï¼Œå¹¶ä¿®æ”¹xmapå’Œymap
     int top        = rect.y;
     int left       = rect.x;
     int bottom     = rect.y + rect.height - 1;
     int right      = rect.x + rect.width - 1;
-    int num_images = xmaps_.size();
+    int num_images = (int) xmaps_.size();
     for (int i = 0; i < num_images; i++) {
         int top_i, bottom_i, left_i, right_i;
         top_i    = max(dst_roi_.y + top, corners_[i].y);
@@ -528,13 +531,13 @@ int StitcherRemap::TrimRect(Rect rect)
 }
 
 /*
- *	Èç¹ûÊÇÆ½ÃæÍ¶Ó°µÄ»°£¬¿ÉÒÔ×Ô¶¯È¥³ıÎ´Ìî³äÇøÓò
+ *	å¦‚æœæ˜¯å¹³é¢æŠ•å½±çš„è¯ï¼Œå¯ä»¥è‡ªåŠ¨å»é™¤æœªå¡«å……åŒºåŸŸ
  */
 int StitcherRemap::TrimInpaint(vector<Mat> &src)
 {
-    int num_images = static_cast<int>(src.size());
+    int num_images = (int) (src.size());
 
-    // ÏÈ¼ÆËã×îÖÕÍ¼ÏñµÄmask
+    // å…ˆè®¡ç®—æœ€ç»ˆå›¾åƒçš„mask
     dst_roi_ = resultRoi(corners_, sizes_);
     Mat dst  = Mat::zeros(dst_roi_.height, dst_roi_.width, CV_8UC1);
     for (int i = 0; i < num_images; i++) {
@@ -588,7 +591,7 @@ int StitcherRemap::TrimInpaint(vector<Mat> &src)
     }
     int right = x;
 
-    // ¼ÆËãÃ¿·ùÍ¼ÏñµÄrect£¬²¢ĞŞ¸ÄxmapºÍymap
+    // è®¡ç®—æ¯å¹…å›¾åƒçš„rectï¼Œå¹¶ä¿®æ”¹xmapå’Œymap
     for (int i = 0; i < num_images; i++) {
         int top_i, bottom_i, left_i, right_i;
         top_i    = max(dst_roi_.y + top, corners_[i].y);
@@ -623,7 +626,7 @@ int StitcherRemap::TrimInpaint(vector<Mat> &src)
 }
 
 /*
- *	ÅĞ¶ÏÒ»ĞĞÖĞÊÇ·ñÓĞÎ´Ìî³äÏñËØ
+ *	åˆ¤æ–­ä¸€è¡Œä¸­æ˜¯å¦æœ‰æœªå¡«å……åƒç´ 
  */
 bool StitcherRemap::IsRowCrossInpaint(uchar *row, int width)
 {
@@ -666,7 +669,7 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
     int num_images = static_cast<int>(src.size());
     LOG(INFO) << ("\t~Preparing...");
 
-    // ¼ÆËãÒ»Ğ©·ÅËõµÄ³ß¶È£¬ÔÚÌØÕ÷¼ì²âºÍ¼ÆËã½Ó·ìµÄÊ±ºò£¬ÎªÁËÌá¸ß³ÌĞòĞ§ÂÊ£¬¿ÉÒÔ¶ÔÔ´Í¼Ïñ½øĞĞÒ»Ğ©·ÅËõ
+    // è®¡ç®—ä¸€äº›æ”¾ç¼©çš„å°ºåº¦ï¼Œåœ¨ç‰¹å¾æ£€æµ‹å’Œè®¡ç®—æ¥ç¼çš„æ—¶å€™ï¼Œä¸ºäº†æé«˜ç¨‹åºæ•ˆç‡ï¼Œå¯ä»¥å¯¹æºå›¾åƒè¿›è¡Œä¸€äº›æ”¾ç¼©
     this->SetScales(src);
 
     if ((cameras_.size() == 0) || (cameras_.size() != num_images)) {
@@ -675,12 +678,12 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
             LOG(INFO) << ("\t~load camera parameters error! Trying to calculate again ...");
         }
 
-        // ÌØÕ÷¼ì²â
+        // ç‰¹å¾æ£€æµ‹
         LOG(INFO) << ("\t~finding features...");
         vector<ImageFeatures> features(num_images);
         this->FindFeatures(src, features);
 #ifdef STITCHER_DEBUG
-        for (int i = 0; i < features.size(); i++) {
+        for (int i = 0; i < (int)features.size(); i++) {
             std::string win_name = std::to_string(i) + "feature";
             cv::Mat feature_img;
             cv::drawKeypoints(src[i], features[i].keypoints, feature_img);
@@ -688,7 +691,7 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
         }
 #endif
 
-        // ÌØÕ÷Æ¥Åä£¬²¢È¥µôÔëÉùÍ¼Æ¬
+        // ç‰¹å¾åŒ¹é…ï¼Œå¹¶å»æ‰å™ªå£°å›¾ç‰‡
         LOG(INFO) << ("\t~matching images...");
         vector<MatchesInfo> pairwise_matches;
         int retrun_flag = this->MatchImages(features, pairwise_matches);
@@ -703,45 +706,45 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
         if (retrun_flag != 0)
             return retrun_flag;
 
-        // ÉãÏñ»ú±ê¶¨
+        // æ‘„åƒæœºæ ‡å®š
         LOG(INFO) << ("\t~calibrating cameras...");
         cameras_.resize(num_images);
         this->CalibrateCameras(features, pairwise_matches, cameras_);
     }
 
 
-    //	¼ÆËãË®Æ½ÊÓ½Ç£¬ÅĞ¶¨Æ½ÃæÍ¶Ó°µÄºÏ·¨ĞÔ
+    //	è®¡ç®—æ°´å¹³è§†è§’ï¼Œåˆ¤å®šå¹³é¢æŠ•å½±çš„åˆæ³•æ€§
     LOG(INFO) << ("\t~calculating view angle...");
     view_angle_ = this->GetViewAngle(src, cameras_);
     if (view_angle_ > 140 && warp_type_ == "plane")
         warp_type_ = "cylindrical";
 
-    // Îª½Ó·ìµÄ¼ÆËã×öWarp
+    // ä¸ºæ¥ç¼çš„è®¡ç®—åšWarp
     LOG(INFO) << ("\t~warping for seaming...");
     vector<Mat> masks_warped;
     vector<Mat> images_warped;
     this->WarpForSeam(src, cameras_, masks_warped, images_warped);
 
-    // ¼ÆËã½Ó·ì
+    // è®¡ç®—æ¥ç¼
     //LOGLN("\t~finding seam...");
     this->FindSeam(images_warped, masks_warped);
     images_warped.clear();
 
-    // °ÑÉãÏñ»ú²ÎÊıºÍmasks»¹Ô­µ½Õı³£´óĞ¡
+    // æŠŠæ‘„åƒæœºå‚æ•°å’Œmasksè¿˜åŸåˆ°æ­£å¸¸å¤§å°
     LOG(INFO) << ("\t~rescaling...");
     this->Rescale(src, cameras_, masks_warped);
 
-    // ²Ã¼ôµôinpaintÇøÓò
+    // è£å‰ªæ‰inpaintåŒºåŸŸ
     if (trim_type_ == StitcherRemap::TRIM_AUTO)
         if (warp_type_ == "plane")
             this->TrimInpaint(src);
     if (trim_type_ == StitcherRemap::TRIM_RECTANGLE)
         this->TrimRect(trim_rect_);
 
-    // Æ´½ÓÆÀ¼Û
+    // æ‹¼æ¥è¯„ä»·
     //this->RegistEvaluation(features, pairwise_matches, cameras);
 
-    // ¼ÆËãÈÚºÏÊ±£¬¸÷ÏñËØµÄÈ¨Öµ
+    // è®¡ç®—èåˆæ—¶ï¼Œå„åƒç´ çš„æƒå€¼
     LOG(INFO) << ("\t~blending...");
     Size dst_sz       = dst_roi_.size();
     float blend_width = sqrt(static_cast<float>(dst_sz.area())) * blend_strength_ / 100.f;
@@ -749,21 +752,23 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
     blender_.createWeightMaps(dst_roi_, corners_,
                               final_blend_masks_, blend_weight_maps_);
 
-    //	¼ÆËã×ÜÈ¨ÖØ
-    num_images = sizes_.size();
+    //è®¡ç®—æ€»æƒé‡
+
+    num_images = (int)sizes_.size();
     total_weight_maps_.resize(num_images);
     for (int i = 0; i < num_images; i++) {
         int n_pixel             = sizes_[i].height * sizes_[i].width;
-        float *blend_weight_ptr = blend_weight_maps_[i].ptr<float>(0);
+        auto *blend_weight_ptr = blend_weight_maps_[i].ptr<float>(0);
         total_weight_maps_[i].create(sizes_[i]);
-        float *total_weight_ptr = total_weight_maps_[i].ptr<float>(0);
+        auto *total_weight_ptr = total_weight_maps_[i].ptr<float>(0);
         for (int j = 0; j < n_pixel; j++)
             total_weight_ptr[j] = blend_weight_ptr[j] * 1.0f;
     }
-    //	´¦ÀíxmapºÍymap£¬·½±ãGPUºËº¯ÊıÊ¹ÓÃ
+    //å¤„ç†xmapå’Œymapï¼Œæ–¹ä¾¿GPUæ ¸å‡½æ•°ä½¿ç”¨
+
     for (int i = 0; i < num_images; i++) {
-        float *xmap    = xmaps_[i].ptr<float>(0);
-        float *ymap    = ymaps_[i].ptr<float>(0);
+        auto *xmap    = xmaps_[i].ptr<float>(0);
+        auto *ymap    = ymaps_[i].ptr<float>(0);
         int n_pixel    = sizes_[i].height * sizes_[i].width;
         int src_height = src[src_indices_[i]].rows;
         int src_width  = src[src_indices_[i]].cols;
@@ -797,33 +802,33 @@ int StitcherRemap::saveRemap(const std::string &save_path)
 {
     std::string bin_name = save_path + "/config.bin";
     std::shared_ptr<FILE> fid(fopen(bin_name.c_str(), "w"), fclose);
-    fprintf(fid.get(), "%d\n", src_indices_.size());
-    for (int i = 0; i < src_indices_.size(); i++) {
-        fprintf(fid.get(), "%d ", src_indices_[i]);
+    fprintf(fid.get(), "%d\n", (int)src_indices_.size());
+    for (int src_indice : src_indices_) {
+        fprintf(fid.get(), "%d ", src_indice);
     }
     fprintf(fid.get(), "\n");
     fprintf(fid.get(), "%d %d %d %d\n", dst_roi_.x, dst_roi_.y,
             dst_roi_.width, dst_roi_.height);
-    for (int i = 0; i < corners_.size(); i++) {
-        fprintf(fid.get(), "%d %d ", corners_[i].x, corners_[i].y);
+    for (auto & corner : corners_) {
+        fprintf(fid.get(), "%d %d ", corner.x, corner.y);
     }
     fprintf(fid.get(), "\n");
-    for (int i = 0; i < sizes_.size(); i++) {
-        fprintf(fid.get(), "%d %d ", sizes_[i].width, sizes_[i].height);
+    for (auto & size : sizes_) {
+        fprintf(fid.get(), "%d %d ", size.width, size.height);
     }
     fprintf(fid.get(), "\n");
     cv::FileStorage fs(save_path + "/mapx.xml", cv::FileStorage::WRITE);
-    for (int i = 0; i < xmaps_.size(); i++) {
+    for (size_t i = 0; i < xmaps_.size(); i++) {
         fs << "xmap" + std::to_string(i) << xmaps_[i];
     }
     fs.release();
     fs.open(save_path + "/mapy.xml", cv::FileStorage::WRITE);
-    for (int i = 0; i < ymaps_.size(); i++) {
+    for (size_t i = 0; i < ymaps_.size(); i++) {
         fs << "ymap" + std::to_string(i) << ymaps_[i];
     }
     fs.release();
     fs.open(save_path + "/blend_weight.xml", cv::FileStorage::WRITE);
-    for (int i = 0; i < total_weight_maps_.size(); i++) {
+    for (size_t i = 0; i < total_weight_maps_.size(); i++) {
         fs << "blend_weight" + std::to_string(i) << total_weight_maps_[i];
     }
     fs.release();
@@ -832,20 +837,20 @@ int StitcherRemap::saveRemap(const std::string &save_path)
 
 int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
 {
-    int64 t;
     int num_images = src_indices_.size();
 
     int dst_width  = dst_roi_.width;
     int dst_height = dst_roi_.height;
     if (dst.empty())
         dst.create(dst_roi_.size(), CV_8UC3);
-    uchar *dst_ptr_00 = dst.ptr<uchar>(0);
+    auto *dst_ptr_00 = dst.ptr<uchar>(0);
     memset(dst_ptr_00, 0, dst_width * dst_height * 3);
 
     for (int img_idx = 0; img_idx < num_images; ++img_idx) {
         // Warp the current image
         remap(src[src_indices_[img_idx]], final_warped_images_[img_idx], xmaps_[img_idx], ymaps_[img_idx],
               INTER_LINEAR);
+        final_warped_images_[img_idx].convertTo(final_warped_images_, CV_32F);
         int dx       = corners_[img_idx].x - dst_roi_.x;
         int dy       = corners_[img_idx].y - dst_roi_.y;
         int img_rows = sizes_[img_idx].height;
@@ -862,12 +867,12 @@ int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
                 row_end = img_rows;
 
             uchar *dst_ptr;
-            uchar *warped_img_ptr   = final_warped_images_[img_idx].ptr<uchar>(row_start);
+            float *warped_img_ptr   = final_warped_images_[img_idx].ptr<float>(row_start);
             float *total_weight_ptr = total_weight_maps_[img_idx].ptr<float>(row_start);
             for (int y = row_start; y < row_end; y++) {
                 dst_ptr = dst_ptr_00 + ((dy + y) * dst_width + dx) * 3;
                 for (int x = 0; x < img_cols; x++) {
-                    /* ÆØ¹â²¹³¥ºÍÈÚºÏ¼ÓÈ¨Æ½¾ù */
+                    /* æ›å…‰è¡¥å¿å’ŒèåˆåŠ æƒå¹³å‡ */
                     (*dst_ptr) += (uchar)(cvRound((*warped_img_ptr) * (*total_weight_ptr)));
                     warped_img_ptr++;
                     dst_ptr++;
@@ -890,14 +895,14 @@ int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
 
 int StitcherRemap::RegistEvaluation(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
 {
-    int num_images             = features.size();
+    int num_images             = (int)features.size();
     Ptr<RotationWarper> warper = warper_creator_->create(median_focal_len_);
 
     MatchesInfo matches_info;
     vector<vector<Point2f>> warped_fpts;
     warped_fpts.resize(num_images);
     for (int i = 0; i < num_images; i++) {
-        int fpts_num = features[i].keypoints.size();
+        int fpts_num = (int)features[i].keypoints.size();
         warped_fpts[i].resize(fpts_num);
         Mat K;
         cameras[i].K().convertTo(K, CV_32F);
@@ -910,7 +915,6 @@ int StitcherRemap::RegistEvaluation(vector<ImageFeatures> &features, vector<Matc
 
     for (int i = 0; i < num_images; i++) {
         for (int j = i + 1; j < num_images; j++) {
-            // ÌØÕ÷µã¶Ô
             int idx      = i * num_images + j;
             matches_info = pairwise_matches[idx];
 
@@ -918,7 +922,7 @@ int StitcherRemap::RegistEvaluation(vector<ImageFeatures> &features, vector<Matc
             if (inliner_nums < 50)// || j != i+1)
                 continue;
 
-            int matches_size   = matches_info.matches.size();
+            int matches_size   = (int)matches_info.matches.size();
             double total_error = 0;
             for (int k = 0; k < matches_size; k++) {
                 if (matches_info.inliers_mask[k]) {
@@ -942,16 +946,15 @@ StitcherRemap::~StitcherRemap()
 {
 }
 
-//	±£´æÉãÏñ»ú²ÎÊı£¬ÎÄ¼ş¸ñÊ½ÈçÏÂ£º
-//	µÚÒ»ĞĞÊÇÖĞ¼ä½¹¾àmedian_focal_len_
-//	Ö®ºóÃ¿Ò»ĞĞÊÇÒ»¸öÏà»ú--
-//		Êı¾İÒÀ´ÎÊÇfocal¡¢aspect¡¢ppx¡¢ppy¡¢R¡¢t
-void StitcherRemap::saveCameraParam(string filename)
+//	ä¿å­˜æ‘„åƒæœºå‚æ•°ï¼Œæ–‡ä»¶æ ¼å¼å¦‚ä¸‹ï¼š
+//	ç¬¬ä¸€è¡Œæ˜¯ä¸­é—´ç„¦è·median_focal_len_
+//	ä¹‹åæ¯ä¸€è¡Œæ˜¯ä¸€ä¸ªç›¸æœº--
+//		æ•°æ®ä¾æ¬¡æ˜¯focalã€aspectã€ppxã€ppyã€Rã€t
+void StitcherRemap::saveCameraParam(const string& filename)
 {
     ofstream cp_file(filename.c_str());
     cp_file << median_focal_len_ << endl;
-    for (int i = 0; i < cameras_.size(); i++) {
-        CameraParams cp = cameras_[i];
+    for (auto cp : cameras_) {
         cp_file << cp.focal << " " << cp.aspect << " " << cp.ppx << " " << cp.ppy;
         for (int r = 0; r < 3; r++)
             for (int c = 0; c < 3; c++)
@@ -963,7 +966,7 @@ void StitcherRemap::saveCameraParam(string filename)
     cp_file.close();
 }
 
-int StitcherRemap::loadCameraParam(string filename)
+int StitcherRemap::loadCameraParam(const string& filename)
 {
     ifstream cp_file(filename.c_str());
     string line;
@@ -975,7 +978,7 @@ int StitcherRemap::loadCameraParam(string filename)
     mfl_string_stream << line;
     mfl_string_stream >> median_focal_len_;
 
-    //	Ã¿ĞĞÒ»¸öÉãÏñ»ú
+    //	æ¯è¡Œä¸€ä¸ªæ‘„åƒæœº
     cameras_.clear();
     while (getline(cp_file, line)) {
         stringstream cp_string_stream;

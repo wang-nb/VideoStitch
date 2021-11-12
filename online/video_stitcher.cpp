@@ -1,5 +1,4 @@
 #include <fstream>
-#include <iostream>
 #include <string>
 
 #include "video_stitcher.h"
@@ -14,7 +13,7 @@ int MyVideoStitcher::StitchFrameCPU(vector<Mat> &src, Mat &dst)
         for (int j = 0; j < video_num_; j++)
             final_warped_images_[j].create(sizes_[j], src[src_indices_[j]].type());
 
-        int num_images = src_indices_.size();
+        int num_images = (int)src_indices_.size();
 
         int dst_width  = dst_roi_.width;
         int dst_height = dst_roi_.height;
@@ -47,7 +46,7 @@ int MyVideoStitcher::StitchFrameCPU(vector<Mat> &src, Mat &dst)
                 for (int y = row_start; y < row_end; y++) {
                     dst_ptr = dst_ptr_00 + ((dy + y) * dst_width + dx) * 3;
                     for (int x = 0; x < img_cols; x++) {
-                        /* ÆØ¹â²¹³¥ºÍÈÚºÏ¼ÓÈ¨Æ½¾ù */
+                        /* æ›å…‰è¡¥å¿å’ŒèžåˆåŠ æƒå¹³å‡ */
                         (*dst_ptr) += (uchar)(cvRound((*warped_img_ptr) * (*total_weight_ptr)));
                         warped_img_ptr++;
                         dst_ptr++;

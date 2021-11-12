@@ -52,8 +52,8 @@ public:
 
     int stitch(std::vector<cv::Mat> &imgs, string &save_path);
 
-    void saveCameraParam(string filename);
-    int loadCameraParam(string filename);
+    void saveCameraParam(const string& filename);
+    int loadCameraParam(const string& filename);
 
 private:
     int saveRemap(const std::string &save_path);
@@ -63,74 +63,74 @@ private:
     int StitchFrameCPU(vector<Mat> &src, Mat &dst);
 
     /*
-	 * ¼ÆËãÒ»Ğ©·ÅËõµÄ³ß¶È£¬ÔÚÌØÕ÷¼ì²âºÍ¼ÆËã½Ó·ìµÄÊ±ºò£¬ÎªÁËÌá¸ß³ÌĞòĞ§ÂÊ£¬¿ÉÒÔ¶ÔÔ´Í¼Ïñ½øĞĞÒ»Ğ©·ÅËõ
-	 */
+     * è®¡ç®—ä¸€äº›æ”¾ç¼©çš„å°ºåº¦ï¼Œåœ¨ç‰¹å¾æ£€æµ‹å’Œè®¡ç®—æ¥ç¼çš„æ—¶å€™ï¼Œä¸ºäº†æé«˜ç¨‹åºæ•ˆç‡ï¼Œå¯ä»¥å¯¹æºå›¾åƒè¿›è¡Œä¸€äº›æ”¾ç¼©
+     */
     void SetScales(vector<Mat> &src);
 
     int FindFeatures(vector<Mat> &src, vector<ImageFeatures> &features);
 
     /*
-	 * ÌØÕ÷Æ¥Åä£¬È»ºóÈ¥³ıÔëÉùÍ¼Æ¬¡£±¾´úÂëÊµÏÖÊ±£¬Ò»µ©³öÏÖÔëÉùÍ¼Æ¬£¬¾ÍÖÕÖ¹Ëã·¨
-	 * ·µ»ØÖµ£º
-	 *		0	¡ª¡ª	Õı³£
-	 *		-2	¡ª¡ª	´æÔÚÔëÉùÍ¼Æ¬
-	 */
+     * ç‰¹å¾åŒ¹é…ï¼Œç„¶åå»é™¤å™ªå£°å›¾ç‰‡ã€‚æœ¬ä»£ç å®ç°æ—¶ï¼Œä¸€æ—¦å‡ºç°å™ªå£°å›¾ç‰‡ï¼Œå°±ç»ˆæ­¢ç®—æ³•
+     * è¿”å›å€¼ï¼š
+     *		0	â€”â€”	æ­£å¸¸
+     *		-2	â€”â€”	å­˜åœ¨å™ªå£°å›¾ç‰‡
+     */
     int MatchImages(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches);
 
     /*
-	 * ÉãÏñ»ú±ê¶¨
-	 */
+     * æ‘„åƒæœºæ ‡å®š
+     */
     int CalibrateCameras(vector<ImageFeatures> &features,
                          vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras);
 
     /*
-	 *	¼ÆËãË®Æ½ÊÓ½Ç
-	 */
+     *	è®¡ç®—æ°´å¹³è§†è§’
+     */
     double GetViewAngle(vector<Mat> &src, vector<CameraParams> &cameras);
 
 
     /*
-	 * Îª½Ó·ìµÄ¼ÆËã×öWarp
-	 */
+     * ä¸ºæ¥ç¼çš„è®¡ç®—åšWarp
+     */
     int WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras,
                     vector<Mat> &masks_warped, vector<Mat> &images_warped);
 
     /*
-	 * ¼ÆËã½Ó·ì
-	 */
+     * è®¡ç®—æ¥ç¼
+     */
     int FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_warped);
 
     /*
-	 *	°ÑÉãÏñ»ú²ÎÊıºÍmasks»¹Ô­µ½Õı³£´óĞ¡
-	 */
+     *	æŠŠæ‘„åƒæœºå‚æ•°å’Œmasksè¿˜åŸåˆ°æ­£å¸¸å¤§å°
+     */
     int Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &seam_masks);
 
     int RegistEvaluation(vector<ImageFeatures> &features,
                          vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras);
 
     /*
-	 *	½â¾ö360¡ãÆ´½ÓÎÊÌâ¡£¶ÔÓÚºá¿ç360¡ã½Ó·ìµÄÍ¼Æ¬£¬ÕÒµ½×î¿íµÄinpaintÇøÓò[x1, x2]
-	 */
+     *	è§£å†³360Â°æ‹¼æ¥é—®é¢˜ã€‚å¯¹äºæ¨ªè·¨360Â°æ¥ç¼çš„å›¾ç‰‡ï¼Œæ‰¾åˆ°æœ€å®½çš„inpaintåŒºåŸŸ[x1, x2]
+     */
     int FindWidestInpaintRange(Mat mask, int &x1, int &x2);
 
     /*
-	 * ²Ã¼ôµôinpaintÇøÓò
-	 */
+     * è£å‰ªæ‰inpaintåŒºåŸŸ
+     */
     int TrimRect(Rect rect);
     int TrimInpaint(vector<Mat> &src);
     bool IsRowCrossInpaint(uchar *row, int width);
 
-    /* ²Ã¼ôÀàĞÍ */
+    /* è£å‰ªç±»å‹ */
     enum { TRIM_NO,
            TRIM_AUTO,
            TRIM_RECTANGLE };
 
-    /* ²ÎÊı */
+    /* å‚æ•° */
     int trim_type_;
     Rect trim_rect_;
 
-    double work_megapix_;
-    double seam_megapix_;
+    float work_megapix_;
+    float seam_megapix_;
     float conf_thresh_;
     string features_type_;
     string ba_cost_func_;
@@ -142,26 +142,26 @@ private:
     string seam_find_type_;
 
     Ptr<WarperCreator> warper_creator_;
-    double work_scale_, seam_scale_;
-    double median_focal_len_;
+    float work_scale_, seam_scale_;
+    float median_focal_len_;
 
-    /* µÚÒ»Ö¡¼ÆËã³öµÄ²ÎÊı£¬²»ÓÃÖØ¸´¼ÆËã */
+    /* ç¬¬ä¸€å¸§è®¡ç®—å‡ºçš„å‚æ•°ï¼Œä¸ç”¨é‡å¤è®¡ç®— */
     vector<CameraParams> cameras_;
     vector<int> src_indices_;
     vector<Point> corners_;
     vector<Size> sizes_;
     Rect dst_roi_;
-    vector<Mat> final_warped_masks_;//warpµÄmask
+    vector<Mat> final_warped_masks_;//warpçš„mask
     vector<Mat> xmaps_;
     vector<Mat> ymaps_;
     vector<Mat> blend_weight_maps_;
     vector<Mat_<float>> total_weight_maps_;
     vector<Mat> final_blend_masks_;//blend_mask = seam_mask & warp_mask
-    double view_angle_;
+    float view_angle_;
     float blend_strength_;
     MyFeatherBlender blender_;
 
-    /* »º´æ */
+    /* ç¼“å­˜ */
     vector<Mat> final_warped_images_;
     int parallel_num_;
     bool is_prepared_;

@@ -12,11 +12,12 @@ class MyVideoStitcher
 public:
     int init(const std::string &config_path);
     int stitchImage(vector<Mat> &src, Mat &pano);
-    int getDstSize(cv::Size& dst_size);
+    int getDstSize(cv::Size &dst_size);
+
 private:
     int StitchFrameCPU(vector<Mat> &src, Mat &dst);
 
-    /* ≤Œ ˝ */
+    /* ÂèÇÊï∞ */
     vector<int> src_indices_;
     vector<Point> corners_;
     vector<Size> sizes_;
@@ -25,7 +26,7 @@ private:
     vector<Mat> ymaps_;
     vector<Mat_<float>> total_weight_maps_;
 
-    /* ª∫¥Ê */
+    /* ÁºìÂ≠ò */
     vector<Mat> final_warped_images_;
     int video_num_;
     int parallel_num_;

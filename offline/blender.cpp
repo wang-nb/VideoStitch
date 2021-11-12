@@ -12,8 +12,8 @@ void MyFeatherBlender::createWeightMaps(Rect dst_roi, vector<Point> corners, vec
     dst_weight_map_.create(dst_roi.size(), CV_32F);
     dst_weight_map_.setTo(0);
 
-    // 为每一幅图片创建weight map
-    int image_num = masks.size();
+    // 涓烘瘡涓�骞呭浘鐗囧垱寤簑eight map
+    int image_num = (int)masks.size();
     weight_maps.resize(image_num);
     for (int i = 0; i < image_num; i++) {
         cv::detail::createWeightMap(masks[i], 1.0f, weight_maps[i]);

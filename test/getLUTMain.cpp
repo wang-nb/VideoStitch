@@ -1,24 +1,18 @@
-#include <iostream>
-#include "opencv2/highgui/highgui.hpp"
-
 #include "../offline/GetRemapLUT.h"
-
-using namespace cv;
-using namespace std;
-
+#include "opencv2/opencv.hpp"
 
 static void printUsage()
 {
-    cout << " ”∆µ∆¥Ω”.\n\n"
-            "VideoStitch [flags]\n"
-            "flags:\n"
-            "    image image ...		±Í∂®ƒ£ Ωœ¬ ‰»ÎµƒÕº∆¨\n"
-            "    -plane			≥¢ ‘∆Ω√ÊÕ∂”∞£¨Ωˆ‘⁄∆¥Ω” ”Ω«–°”⁄140°„ ±ø…”√\n"
-            "    -trim			≥¢ ‘≤√ºÙŒ¥ÃÓ≥‰«¯”Ú£¨Ωˆ‘⁄∆Ω√ÊÕ∂”∞ ±ø…”√\n"
-            "    --trim  x1 y1 x2 y2		∞¥’’x1 y1 x2 y2ππ≥…µƒæÿ–Œ≤√ºÙ◊Ó÷’Ω·π˚\n"
-            "    --cp camera_param_path	 π”√camera_param_pathµƒ…„œÒª˙≤Œ ˝\n";
+    std::cout << "ËßÜÈ¢ëÊãºÊé•.\n\n"
+                 "VideoStitch [flags]\n"
+                 "flags:\n"
+                 "    image image ...		Ê†áÂÆöÊ®°Âºè‰∏ãËæìÂÖ•ÁöÑÂõæÁâá\n"
+                 "    -plane			Â∞ùËØïÂπ≥Èù¢ÊäïÂΩ±Ôºå‰ªÖÂú®ÊãºÊé•ËßÜËßíÂ∞è‰∫é140¬∞Êó∂ÂèØÁî®\n"
+                 "    -trim			Â∞ùËØïË£ÅÂâ™Êú™Â°´ÂÖÖÂå∫ÂüüÔºå‰ªÖÂú®Âπ≥Èù¢ÊäïÂΩ±Êó∂ÂèØÁî®\n"
+                 "    --trim  x1 y1 x2 y2		ÊåâÁÖßx1 y1 x2 y2ÊûÑÊàêÁöÑÁü©ÂΩ¢Ë£ÅÂâ™ÊúÄÁªàÁªìÊûú\n"
+                 "    --cp camera_param_path	‰ΩøÁî®camera_param_pathÁöÑÊëÑÂÉèÊú∫ÂèÇÊï∞\n";
 }
-static vector<string> video_names;
+static std::vector<string> video_names;
 static bool is_trim = false, is_trim_rect = false;
 static string warp_type = "cylindrical";
 static Rect trim_rect;
@@ -42,7 +36,7 @@ static int parseCmdArgs(int argc, char *argv[])
             int y1                 = atoi(argv[i + 2]);
             int x2                 = atoi(argv[i + 3]);
             int y2                 = atoi(argv[i + 4]);
-            trim_rect              = Rect(x1, y1, x2 - x1, y2 - y1);
+            trim_rect              = cv::Rect(x1, y1, x2 - x1, y2 - y1);
             i += 4;
         } else if (string(argv[i]) == "-plane")
             warp_type = "plane";
@@ -60,11 +54,11 @@ static int VideoStitch(int argc, char *argv[])
     if (retval)
         return retval;
 
-    //	 ‰»Î ”∆µ¡˜
-    vector<cv::Mat> imgs;
-    int video_num = video_names.size();
+    //	ËæìÂÖ•ËßÜÈ¢ëÊµÅ
+    std::vector<cv::Mat> imgs;
+    size_t video_num = video_names.size();
     imgs.resize(video_num);
-    for (int i = 0; i < video_num; i++) {
+    for (size_t i = 0; i < video_num; i++) {
         imgs[i] = cv::imread(video_names[i]);
         if (imgs[i].empty()) {
             cout << "Fail to open " << video_names[i] << endl;
@@ -74,13 +68,13 @@ static int VideoStitch(int argc, char *argv[])
     cout << "Video capture success" << endl;
 
     StitcherRemap video_stitcher;
-    //	∆¥Ω”≤Œ ˝
+    //	ÊãºÊé•ÂèÇÊï∞
     video_stitcher.setTrim(is_trim);
     if (is_trim_rect)
         video_stitcher.setTrim(trim_rect);
     video_stitcher.setWarpType(warp_type);
 
-    //	∆¥Ω”
+    //	ÊãºÊé•
     std::string save_path = "data/";
     video_stitcher.stitch(imgs, save_path);
     return 0;
