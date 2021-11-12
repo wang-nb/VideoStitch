@@ -1,10 +1,7 @@
 #include <iostream>
-
-#include <time.h>
-
 #include "opencv2/highgui/highgui.hpp"
 
-#include "../offline/get_remap.h"
+#include "../offline/GetRemapLUT.h"
 
 using namespace cv;
 using namespace std;

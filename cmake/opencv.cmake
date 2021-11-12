@@ -1,9 +1,4 @@
-﻿IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    #OpenCV
-    set(OpenCV_INCLUDE_DIRS ${THIRD_PARTY_PATH}/opencv-android-armv7-ffmpeg/include)
-    set(Opencv_LIB_DIRS ${THIRD_PARTY_PATH}/opencv-android-armv7-ffmpeg/libs)
-    set(OpenCV_LIBS -lopencv_core -lopencv_imgcodecs -lopencv_imgproc)
-ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+﻿IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     # using GCC
     find_package(OpenCV REQUIRED)
     include_directories(${OpenCV_INCLUDE_DIRS})
