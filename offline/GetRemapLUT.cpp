@@ -3,15 +3,11 @@
 #include <iostream>
 #include <string>
 
-#include "gutil.h"
-#include "video_stitcher.h"
+#include "GetRemapLUT.h"
 
-
-MyVideoStitcher::MyVideoStitcher()
+StitcherRemap::StitcherRemap()
 {
-    start_frame_index_ = 0;
-    end_frame_index_   = -1;
-    trim_type_         = MyVideoStitcher::TRIM_NO;
+    trim_type_ = StitcherRemap::TRIM_NO;
 
     work_megapix_       = 1.0;//-1;//
     seam_megapix_       = 0.2;//-1;//
@@ -22,127 +18,42 @@ MyVideoStitcher::MyVideoStitcher()
     ba_refine_mask_     = "xxxxx";
     is_do_wave_correct_ = true;
     wave_correct_       = detail::WAVE_CORRECT_HORIZ;
-    is_save_graph_      = false;
-    warp_type_          = "cylindrical";                   //"plane";//"apap";//"paniniA2B1";//"transverseMercator";//"spherical";//
-    expos_comp_type_    = ExposureCompensator::GAIN_BLOCKS;//ExposureCompensator::GAIN;//
+    warp_type_          = "cylindrical";//"plane";//"apap";//"paniniA2B1";//"transverseMercator";//"spherical";//
     match_conf_         = 0.3f;
-    seam_find_type_     = "gc_color";      //"voronoi";//
-    blend_type_         = Blender::FEATHER;//Blender::MULTI_BAND;//Blender::NO;//
-    blend_strength_     = 5;
+    seam_find_type_     = "gc_color";//"voronoi";//
 }
 
-int MyVideoStitcher::stitch(vector<VideoCapture> &captures, string &writer_file_name)
+int StitcherRemap::stitch(std::vector<cv::Mat> &src, string &save_path)
 {
-    int video_num = captures.size();
-    vector<Mat> src(video_num);
-    Mat frame, dst, show_dst;
+    int video_num = src.size();
+    Mat dst;
+    //做一些初始化，并且确定结果视频的分辨率
 
-    //	Debug用信息
-    bool is_save_input_frames  = false;
-    bool is_save_output_frames = true;
-
-    double fps = captures[0].get(CV_CAP_PROP_FPS);
-
-    // skip some frames
-    for (int j = 0; j < video_num; j++)
-        for (int i = 0; i < start_frame_index_; i++)
-            captures[j].read(frame);
-
-    // 第一帧，做一些初始化，并且确定结果视频的分辨率
-    for (int j = 0; j < video_num; j++) {
-        if (!captures[j].read(frame))
-            return -1;
-        frame.copyTo(src[j]);
-#ifdef STITCHER_DEBUG
-            char img_save_name[100];
-            sprintf(img_save_name, "data/%d.jpg", j + 1);
-            imwrite(img_save_name, src[j]);
-#endif
-    }
-    int prepare_status       = Prepare(src);
+    int prepare_status = Prepare(src);
     //	先用ORB特征测试，错误的话再使用SURF，仍然错误则报错，输入视频不符合条件
     if (prepare_status == STITCH_CONFIG_ERROR) {
         cout << "video stitch config error!" << endl;
         return -1;
     }
     StitchFrame(src, dst);
+    saveRemap(save_path);
 #ifdef STITCHER_DEBUG
-    {
-        imwrite("data/res.jpg", dst);
-        vector<Mat> img_masks(video_num);
-        for (int i = 0; i < video_num; i++) {
-            img_masks[i].create(src[i].rows, src[i].cols, CV_8UC3);
-            img_masks[i].setTo(Scalar::all(255));
-        }
-        Mat dst_mask;
-        StitchFrame(img_masks, dst_mask);
-        imwrite("data/mask.jpg", dst_mask);
-    }
+    imwrite("data/res.jpg", dst);
 #endif
-
-    FrameInfo frame_info;
-    frame_info.src.resize(video_num);
-
-    int frameidx = 1;
-
-    cout << "Stitching..." << endl;
-
     string window_name = "视频拼接";
     namedWindow(window_name);
-    double show_scale = 1.0, scale_interval = 0.03;
-
-    int failed_frame_count = 0;
-    while (true) {
-        //	采集
-        int j;
-        for (j = 0; j < video_num; j++) {
-            if (!captures[j].read(frame))
-                break;
-            frame.copyTo(frame_info.src[j]);
-        }
-        frame_info.frame_idx = frameidx;
-        frameidx++;
-        if (j != video_num || (end_frame_index_ >= 0 && frameidx >= end_frame_index_))//有一个视频源结束，则停止拼接
-            break;
-
-        //	拼接
-        frame_info.stitch_status = StitchFrame(frame_info.src, frame_info.dst);
-        //	拼接失败
-        if (frame_info.stitch_status != 0) {
-            cout << "failed\n";
-            failed_frame_count++;
-            break;
-        }
-        cout << endl;
-
-        //	显示---
-        {
-            int key = waitKey(40);
-            if (key == 27)//	ESC
-                break;
-            else if (key == 61 || key == 43)//	+
-                show_scale += scale_interval;
-            else if (key == 45)//	-
-                if (show_scale >= scale_interval)
-                    show_scale -= scale_interval;
-            resize(frame_info.dst, show_dst, Size(show_scale * dst.cols, show_scale * dst.rows));
-            imshow(window_name, show_dst);
-        }
-    }
+    imshow(window_name, dst);
     cout << "\nStitch over" << endl;
     cout << "\tfull view angle is " << cvRound(view_angle_) << "°" << endl;
     cout << "\tcenter: (" << -dst_roi_.x << ", " << -dst_roi_.y << ")" << endl;
+    cv::waitKey(0);
     return 0;
-}
-
-void MyVideoStitcher::InitMembers(int num_images)
-{
 }
 
 /*
  *	初始图像可能分辨率很高，先做一步降采样，可以提高时间效率
  */
-void MyVideoStitcher::SetScales(vector<Mat> &src)
+void StitcherRemap::SetScales(vector<Mat> &src)
 {
     if (work_megapix_ < 0)
         work_scale_ = 1.0;
@@ -158,13 +69,13 @@ void MyVideoStitcher::SetScales(vector<Mat> &src)
 /*
  *	特征提取，支持SURF和ORB
  */
-int MyVideoStitcher::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &features)
+int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &features)
 {
-    Ptr<FeaturesFinder> finder;
+    Ptr<FeatureDetector> finder;
     if (features_type_ == "surf") {
-            finder = new SurfFeaturesFinder();
+        //finder = new SurfFeaturesDetector();
     } else if (features_type_ == "orb") {
-        finder = new OrbFeaturesFinder();//Size(3,1), 1500, 1.3, 5);
+        finder = cv::ORB::create();//Size(3,1), 1500, 1.3, 5);
     } else {
         cout << "Unknown 2D features type: '" << features_type_ << "'.\n";
         return STITCH_CONFIG_ERROR;
@@ -181,11 +92,11 @@ int MyVideoStitcher::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &featu
         else
             resize(full_img, img, Size(), work_scale_, work_scale_);
 
-        (*finder)(img, features[i]);
+        finder->detectAndCompute(img, Mat(), features[i].keypoints,
+                                 features[i].descriptors, false);
         features[i].img_idx = i;
     }
-
-    finder->collectGarbage();
+    finder.release();
     full_img.release();
     img.release();
 
@@ -198,7 +109,7 @@ int MyVideoStitcher::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &featu
  *		0	——	正常
  *		-2	——	存在噪声图片
  */
-int MyVideoStitcher::MatchImages(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches)
+int StitcherRemap::MatchImages(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches)
 {
     int total_num_images = static_cast<int>(features.size());
 
@@ -222,7 +133,7 @@ int MyVideoStitcher::MatchImages(vector<ImageFeatures> &features, vector<Matches
 /*
  * 摄像机标定
  */
-int MyVideoStitcher::CalibrateCameras(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
+int StitcherRemap::CalibrateCameras(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
 {
     HomographyBasedEstimator estimator;
     Ptr<detail::BundleAdjusterBase> adjuster;
@@ -284,7 +195,7 @@ int MyVideoStitcher::CalibrateCameras(vector<ImageFeatures> &features, vector<Ma
 /*
  *	计算水平视角，用于判断是否适用于平面投影
  */
-double MyVideoStitcher::GetViewAngle(vector<Mat> &src, vector<CameraParams> &cameras)
+double StitcherRemap::GetViewAngle(vector<Mat> &src, vector<CameraParams> &cameras)
 {
     Ptr<WarperCreator> warper_creator = new cv::CylindricalWarper();
     Ptr<RotationWarper> warper        = warper_creator->create(median_focal_len_);
@@ -307,7 +218,7 @@ double MyVideoStitcher::GetViewAngle(vector<Mat> &src, vector<CameraParams> &cam
 /*
  *	计算接缝之前，需要先把原始图像和mask按照相机参数投影
  */
-int MyVideoStitcher::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &masks_warped, vector<Mat> &images_warped)
+int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &masks_warped, vector<Mat> &images_warped)
 {
     // Warp images and their masks
     {
@@ -410,7 +321,7 @@ int MyVideoStitcher::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras
 /*
  *	解决360°拼接问题。对于横跨360°接缝的图片，找到最宽的inpaint区域[x1, x2]
  */
-int MyVideoStitcher::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
+int StitcherRemap::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
 {
     vector<int> sum_row(mask.cols);
     uchar *mask_ptr = mask.ptr<uchar>(0);
@@ -440,7 +351,7 @@ int MyVideoStitcher::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
 /*
  *	计算接缝
  */
-int MyVideoStitcher::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_warped)
+int StitcherRemap::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_warped)
 {
     int num_images = static_cast<int>(images_warped.size());
     vector<UMat> images_warped_f(num_images);
@@ -457,9 +368,9 @@ int MyVideoStitcher::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_war
     else if (seam_find_type_ == "voronoi")
         seam_finder = new detail::VoronoiSeamFinder();
     else if (seam_find_type_ == "gc_color") {
-            seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR);
+        seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR);
     } else if (seam_find_type_ == "gc_colorgrad") {
-            seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR_GRAD);
+        seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR_GRAD);
     } else if (seam_find_type_ == "dp_color")
         seam_finder = new detail::DpSeamFinder(DpSeamFinder::COLOR);
     else if (seam_find_type_ == "dp_colorgrad")
@@ -478,7 +389,7 @@ int MyVideoStitcher::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_war
 /*
  *	恢复原始图像大小
  */
-int MyVideoStitcher::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &seam_masks)
+int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &seam_masks)
 {
     median_focal_len_          = median_focal_len_ / work_scale_;
     Ptr<RotationWarper> warper = warper_creator_->create(median_focal_len_);
@@ -576,7 +487,7 @@ int MyVideoStitcher::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, ve
 /*
  *	拼接结果可能是不规则形状，裁剪成方形
  */
-int MyVideoStitcher::TrimRect(Rect rect)
+int StitcherRemap::TrimRect(Rect rect)
 {
     // 计算每幅图像的rect，并修改xmap和ymap
     int top        = rect.y;
@@ -619,7 +530,7 @@ int MyVideoStitcher::TrimRect(Rect rect)
 /*
  *	如果是平面投影的话，可以自动去除未填充区域
  */
-int MyVideoStitcher::TrimInpaint(vector<Mat> &src)
+int StitcherRemap::TrimInpaint(vector<Mat> &src)
 {
     int num_images = static_cast<int>(src.size());
 
@@ -714,7 +625,7 @@ int MyVideoStitcher::TrimInpaint(vector<Mat> &src)
 /*
  *	判断一行中是否有未填充像素
  */
-bool MyVideoStitcher::IsRowCrossInpaint(uchar *row, int width)
+bool StitcherRemap::IsRowCrossInpaint(uchar *row, int width)
 {
     bool is_have_entered_inpaint = false;
     int count0                   = 0;
@@ -731,7 +642,7 @@ bool MyVideoStitcher::IsRowCrossInpaint(uchar *row, int width)
     return false;
 }
 
-int MyVideoStitcher::Prepare(vector<Mat> &src)
+int StitcherRemap::Prepare(vector<Mat> &src)
 {
     cv::setBreakOnError(true);
     int num_images = static_cast<int>(src.size());
@@ -750,12 +661,10 @@ int MyVideoStitcher::Prepare(vector<Mat> &src)
     return flag;
 }
 
-int MyVideoStitcher::PrepareClassical(vector<Mat> &src)
+int StitcherRemap::PrepareClassical(vector<Mat> &src)
 {
     int num_images = static_cast<int>(src.size());
     LOG(INFO) << ("\t~Preparing...");
-
-    this->InitMembers(num_images);
 
     // 计算一些放缩的尺度，在特征检测和计算接缝的时候，为了提高程序效率，可以对源图像进行一些放缩
     this->SetScales(src);
@@ -771,8 +680,7 @@ int MyVideoStitcher::PrepareClassical(vector<Mat> &src)
         vector<ImageFeatures> features(num_images);
         this->FindFeatures(src, features);
 #ifdef STITCHER_DEBUG
-        for(int i = 0; i < features.size(); i++)
-        {
+        for (int i = 0; i < features.size(); i++) {
             std::string win_name = std::to_string(i) + "feature";
             cv::Mat feature_img;
             cv::drawKeypoints(src[i], features[i].keypoints, feature_img);
@@ -788,8 +696,8 @@ int MyVideoStitcher::PrepareClassical(vector<Mat> &src)
         cv::Mat pairwiseImg;
         drawMatches(src[0], features[0].keypoints, src[1], features[1].keypoints,
                     pairwise_matches[1].matches, pairwiseImg, Scalar::all(-1),
-                    Scalar::all(-1), vector< char>(),
-                            DrawMatchesFlags::DEFAULT);
+                    Scalar::all(-1), vector<char>(),
+                    DrawMatchesFlags::DEFAULT);
         cv::imwrite("data/match.jpg", pairwiseImg);
 #endif
         if (retrun_flag != 0)
@@ -824,10 +732,10 @@ int MyVideoStitcher::PrepareClassical(vector<Mat> &src)
     this->Rescale(src, cameras_, masks_warped);
 
     // 裁剪掉inpaint区域
-    if (trim_type_ == MyVideoStitcher::TRIM_AUTO)
+    if (trim_type_ == StitcherRemap::TRIM_AUTO)
         if (warp_type_ == "plane")
             this->TrimInpaint(src);
-    if (trim_type_ == MyVideoStitcher::TRIM_RECTANGLE)
+    if (trim_type_ == StitcherRemap::TRIM_RECTANGLE)
         this->TrimRect(trim_rect_);
 
     // 拼接评价
@@ -850,11 +758,7 @@ int MyVideoStitcher::PrepareClassical(vector<Mat> &src)
         total_weight_maps_[i].create(sizes_[i]);
         float *total_weight_ptr = total_weight_maps_[i].ptr<float>(0);
         for (int j = 0; j < n_pixel; j++)
-            total_weight_ptr[j] = blend_weight_ptr[j] *1.0f;
-
-//        cv::Mat blend_mask = blend_weight_maps_[i]*255;
-//        blend_mask.convertTo(blend_mask, CV_8UC1);
-//        cv::imwrite("data/" + std::to_string(i) + ".jpg", blend_mask);
+            total_weight_ptr[j] = blend_weight_ptr[j] * 1.0f;
     }
     //	处理xmap和ymap，方便GPU核函数使用
     for (int i = 0; i < num_images; i++) {
@@ -879,7 +783,7 @@ int MyVideoStitcher::PrepareClassical(vector<Mat> &src)
     return STITCH_SUCCESS;
 }
 
-int MyVideoStitcher::StitchFrame(vector<Mat> &src, Mat &dst)
+int StitcherRemap::StitchFrame(vector<Mat> &src, Mat &dst)
 {
     if (!is_prepared_) {
         int flag = Prepare(src);
@@ -889,7 +793,44 @@ int MyVideoStitcher::StitchFrame(vector<Mat> &src, Mat &dst)
     return StitchFrameCPU(src, dst);
 }
 
-int MyVideoStitcher::StitchFrameCPU(vector<Mat> &src, Mat &dst)
+int StitcherRemap::saveRemap(const std::string &save_path)
+{
+    std::string bin_name = save_path + "/config.bin";
+    std::shared_ptr<FILE> fid(fopen(bin_name.c_str(), "w"), fclose);
+    fprintf(fid.get(), "%d\n", src_indices_.size());
+    for (int i = 0; i < src_indices_.size(); i++) {
+        fprintf(fid.get(), "%d ", src_indices_[i]);
+    }
+    fprintf(fid.get(), "\n");
+    fprintf(fid.get(), "%d %d %d %d\n", dst_roi_.x, dst_roi_.y,
+            dst_roi_.width, dst_roi_.height);
+    for (int i = 0; i < corners_.size(); i++) {
+        fprintf(fid.get(), "%d %d ", corners_[i].x, corners_[i].y);
+    }
+    fprintf(fid.get(), "\n");
+    for (int i = 0; i < sizes_.size(); i++) {
+        fprintf(fid.get(), "%d %d ", sizes_[i].width, sizes_[i].height);
+    }
+    fprintf(fid.get(), "\n");
+    cv::FileStorage fs(save_path + "/mapx.xml", cv::FileStorage::WRITE);
+    for (int i = 0; i < xmaps_.size(); i++) {
+        fs << "xmap" + std::to_string(i) << xmaps_[i];
+    }
+    fs.release();
+    fs.open(save_path + "/mapy.xml", cv::FileStorage::WRITE);
+    for (int i = 0; i < ymaps_.size(); i++) {
+        fs << "ymap" + std::to_string(i) << ymaps_[i];
+    }
+    fs.release();
+    fs.open(save_path + "/blend_weight.xml", cv::FileStorage::WRITE);
+    for (int i = 0; i < total_weight_maps_.size(); i++) {
+        fs << "blend_weight" + std::to_string(i) << total_weight_maps_[i];
+    }
+    fs.release();
+    return 0;
+}
+
+int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
 {
     int64 t;
     int num_images = src_indices_.size();
@@ -947,7 +888,7 @@ int MyVideoStitcher::StitchFrameCPU(vector<Mat> &src, Mat &dst)
     return 0;
 }
 
-int MyVideoStitcher::RegistEvaluation(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
+int StitcherRemap::RegistEvaluation(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
 {
     int num_images             = features.size();
     Ptr<RotationWarper> warper = warper_creator_->create(median_focal_len_);
@@ -997,38 +938,15 @@ int MyVideoStitcher::RegistEvaluation(vector<ImageFeatures> &features, vector<Ma
     return 0;
 }
 
-MyVideoStitcher::~MyVideoStitcher()
+StitcherRemap::~StitcherRemap()
 {
-}
-
-int MyVideoStitcher::stitchImage(vector<Mat> &src, Mat &pano)
-{
-    Prepare(src);
-    if (false) {
-        char img_name[100];
-        int img_num = corners_.size();
-        cout << dst_roi_ << endl;
-        for (int i = 0; i < img_num; i++) {
-            cout << src_indices_[i] << ", " << corners_[i] << ", " << sizes_[i] << endl;
-            sprintf(img_name, "data/masks_%d.jpg", i);
-            imwrite(img_name, this->final_blend_masks_[i]);
-
-            sprintf(img_name, "/weight/%d.jpg", i);
-            Mat weight_img_float = total_weight_maps_[i] * 255;
-            Mat weight_img;
-            weight_img_float.convertTo(weight_img, CV_8U);
-            imwrite(img_name, weight_img);
-        }
-    }
-    StitchFrame(src, pano);
-    return 0;
 }
 
 //	保存摄像机参数，文件格式如下：
 //	第一行是中间焦距median_focal_len_
 //	之后每一行是一个相机--
 //		数据依次是focal、aspect、ppx、ppy、R、t
-void MyVideoStitcher::saveCameraParam(string filename)
+void StitcherRemap::saveCameraParam(string filename)
 {
     ofstream cp_file(filename.c_str());
     cp_file << median_focal_len_ << endl;
@@ -1045,7 +963,7 @@ void MyVideoStitcher::saveCameraParam(string filename)
     cp_file.close();
 }
 
-int MyVideoStitcher::loadCameraParam(string filename)
+int StitcherRemap::loadCameraParam(string filename)
 {
     ifstream cp_file(filename.c_str());
     string line;

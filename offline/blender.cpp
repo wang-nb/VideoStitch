@@ -16,8 +16,7 @@ void MyFeatherBlender::createWeightMaps(Rect dst_roi, vector<Point> corners, vec
     int image_num = masks.size();
     weight_maps.resize(image_num);
     for (int i = 0; i < image_num; i++) {
-        createWeightMap(masks[i], m_sharpness_, weight_maps[i]);
-        normalizeUsingWeightMap(weight_maps[i], weight_maps[i]);
+        cv::detail::createWeightMap(masks[i], 1.0f, weight_maps[i]);
         //cout << weight_maps[i].size() << endl;
         int dx = corners[i].x - dst_roi.x;
         int dy = corners[i].y - dst_roi.y;

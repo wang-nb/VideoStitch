@@ -4,7 +4,7 @@
 
 #include "opencv2/highgui/highgui.hpp"
 
-#include "../offline/video_stitcher.h"
+#include "../offline/get_remap.h"
 
 using namespace cv;
 using namespace std;
@@ -15,8 +15,7 @@ static void printUsage()
     cout << "视频拼接.\n\n"
             "VideoStitch [flags]\n"
             "flags:\n"
-            "    video1 video2 ...		视频模式，输入视频路径（视频模式和摄像机模式只能开启一种）\n"
-            "    --range start end		拼接范围，从start到end帧，end=-1表示拼接到结尾\n"
+            "    image image ...		标定模式下输入的图片\n"
             "    -plane			尝试平面投影，仅在拼接视角小于140°时可用\n"
             "    -trim			尝试裁剪未填充区域，仅在平面投影时可用\n"
             "    --trim  x1 y1 x2 y2		按照x1 y1 x2 y2构成的矩形裁剪最终结果\n"
@@ -24,7 +23,6 @@ static void printUsage()
 }
 static vector<string> video_names;
 static bool is_trim = false, is_trim_rect = false;
-static int range_start = 0, range_end = -1;
 static string warp_type = "cylindrical";
 static Rect trim_rect;
 static int parseCmdArgs(int argc, char *argv[])
@@ -39,10 +37,6 @@ static int parseCmdArgs(int argc, char *argv[])
         if (string(argv[i]) == "--help" || string(argv[i]) == "/?") {
             printUsage();
             return -1;
-        } else if (string(argv[i]) == "--range") {
-            range_start = atoi(argv[i + 1]);
-            range_end   = atoi(argv[i + 2]);
-            i += 2;
         } else if (string(argv[i]) == "-trim")
             is_trim = true;
         else if (string(argv[i]) == "--trim") {
@@ -61,9 +55,6 @@ static int parseCmdArgs(int argc, char *argv[])
     return 0;
 }
 
-//两个样例：
-//	VideoStitch data/6-2/my_cam_0.avi data/6-2/my_cam_1.avi data/6-2/my_cam_2.avi data/6-2/my_cam_3.avi data/6-2/my_cam_4.avi data/6-2/my_cam_5.avi -v -gpu
-//	VideoStitch --camera 5 1280 720 -v -gpu --debug data/tmp/ --cp data/tmp/camera_param_5.dat
 static int VideoStitch(int argc, char *argv[])
 {
     for (int i = 0; i < argc; i++)
@@ -72,28 +63,20 @@ static int VideoStitch(int argc, char *argv[])
     if (retval)
         return retval;
 
-    for (int i = 0; i < video_names.size(); i++)
-        cout << video_names[i] << endl;
-
     //	输入视频流
-    vector<VideoCapture> captures;
+    vector<cv::Mat> imgs;
     int video_num = video_names.size();
-    captures.resize(video_num);
+    imgs.resize(video_num);
     for (int i = 0; i < video_num; i++) {
-        captures[i].open(video_names[i]);
-        if (!captures[i].isOpened()) {
+        imgs[i] = cv::imread(video_names[i]);
+        if (imgs[i].empty()) {
             cout << "Fail to open " << video_names[i] << endl;
-            for (int j = 0; j < i; j++) captures[j].release();
             return -1;
         }
     }
     cout << "Video capture success" << endl;
 
-    MyVideoStitcher video_stitcher;
-
-    //	显示/保存
-    video_stitcher.setRange(range_start, range_end);
-
+    StitcherRemap video_stitcher;
     //	拼接参数
     video_stitcher.setTrim(is_trim);
     if (is_trim_rect)
@@ -102,20 +85,12 @@ static int VideoStitch(int argc, char *argv[])
 
     //	拼接
     std::string save_path = "data/";
-    video_stitcher.stitch(captures, save_path);
-
-    //	释放资源
-    for (int i = 0; i < captures.size(); i++)
-        captures[i].release();
-
-    cout << "Released all" << endl;
-
+    video_stitcher.stitch(imgs, save_path);
     return 0;
 }
 
 int main(int argc, char *argv[])
 {
     VideoStitch(argc, argv);
-    system("pause");
     return 0;
 }
