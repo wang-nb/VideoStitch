@@ -1,4 +1,15 @@
-#pragma once
+﻿#pragma once
+/**********************************************************
+Filename: GetRemapLut.h
+Author:   wangnb 
+Version:  v0.1
+Description: 
+Function List: 
+            1.
+History:
+       wangnb  2021-11-15 19:40   0.1  
+       
+************************************************************/
 
 
 #include <opencv2/highgui/highgui.hpp>
@@ -22,11 +33,6 @@ using namespace cv;
 using namespace cv::detail;
 
 #define BUFFER_SIZE 1
-
-
-/************************************************************************/
-/*                          stitch status                               */
-/************************************************************************/
 #define STITCH_SUCCESS 0
 #define STITCH_CONFIG_ERROR -1
 #define STITCH_NOISE -2
@@ -122,8 +128,8 @@ private:
 
     /* 裁剪类型 */
     enum { TRIM_NO,
-           TRIM_AUTO,
-           TRIM_RECTANGLE };
+        TRIM_AUTO,
+        TRIM_RECTANGLE };
 
     /* 参数 */
     int trim_type_;

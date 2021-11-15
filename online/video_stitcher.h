@@ -1,5 +1,16 @@
-#ifndef __MY_VIDEO_STITCHER_H__
-#define __MY_VIDEO_STITCHER_H__
+﻿#pragma once
+/**********************************************************
+Filename: video_stitcher.h
+Author:   wangnb 
+Version:  v0.1
+Description: 
+Function List: 
+            1.
+History:
+       wangnb  2021-11-15 19:47   0.1  
+       
+************************************************************/
+
 
 #include "logging.hpp"
 #include "opencv2/opencv.hpp"
@@ -31,5 +42,3 @@ private:
     int video_num_;
     int parallel_num_;
 };
-
-#endif

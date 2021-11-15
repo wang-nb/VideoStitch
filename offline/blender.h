@@ -1,6 +1,15 @@
-#ifndef __VIDEO_STITCH_MY_BLENDER_H__
-#define __VIDEO_STITCH_MY_BLENDER_H__
-
+﻿#pragma once
+/**********************************************************
+Filename: blend.h
+Author:   wangnb 
+Version:  v0.1
+Description: 
+Function List: 
+            1.
+History:
+       wangnb  2021-11-15 19:43   0.1  
+       
+************************************************************/
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/opencv_modules.hpp"
 #include "opencv2/stitching/detail/blenders.hpp"
@@ -46,6 +55,3 @@ protected:
     Mat dst_, dst_mask_;
     Rect dst_roi_;
 };
-
-
-#endif

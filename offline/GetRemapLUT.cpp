@@ -1,9 +1,13 @@
+﻿//
+// Created by Administrator on 2021-11-15.
+//
+
+#include "GetRemapLut.h"
 
 #include <fstream>
 #include <iostream>
 #include <string>
 
-#include "GetRemapLUT.h"
 using namespace std;
 using namespace cv;
 
@@ -77,7 +81,7 @@ int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &feature
     if (features_type_ == "surf") {
         //finder = new SurfFeaturesDetector();
     } else if (features_type_ == "orb") {
-        finder = cv::ORB::create();//Size(3,1), 1500, 1.3, 5);
+        finder = cv::SIFT::create();//Size(3,1), 1500, 1.3, 5);
     } else {
         cout << "Unknown 2D features type: '" << features_type_ << "'.\n";
         return STITCH_CONFIG_ERROR;
@@ -208,7 +212,8 @@ double StitcherRemap::GetViewAngle(vector<Mat> &src, vector<CameraParams> &camer
     for (int i = 0; i < num_images; ++i) {
         Mat_<float> K;
         cameras[i].K().convertTo(K, CV_32F);
-        Rect roi = warper->warpRoi(Size(src[i].cols * work_scale_, src[i].rows * work_scale_), K, cameras[i].R);
+        Rect roi = warper->warpRoi(Size((int)(src[i].cols * work_scale_),
+                                        (int)(src[i].rows * work_scale_)), K, cameras[i].R);
         corners.push_back(roi.tl());
         sizes.push_back(roi.size());
     }
@@ -715,7 +720,7 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
 
     //	计算水平视角，判定平面投影的合法性
     LOG(INFO) << ("\t~calculating view angle...");
-    view_angle_ = this->GetViewAngle(src, cameras_);
+    view_angle_ = (float)this->GetViewAngle(src, cameras_);
     if (view_angle_ > 140 && warp_type_ == "plane")
         warp_type_ = "cylindrical";
 
@@ -748,7 +753,7 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
     LOG(INFO) << ("\t~blending...");
     Size dst_sz       = dst_roi_.size();
     float blend_width = sqrt(static_cast<float>(dst_sz.area())) * blend_strength_ / 100.f;
-    blender_.setSharpness(1.f / blend_width);
+    blender_.setSharpness(0.1f);
     blender_.createWeightMaps(dst_roi_, corners_,
                               final_blend_masks_, blend_weight_maps_);
 
@@ -837,7 +842,7 @@ int StitcherRemap::saveRemap(const std::string &save_path)
 
 int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
 {
-    int num_images = src_indices_.size();
+    int num_images = (int)src_indices_.size();
 
     int dst_width  = dst_roi_.width;
     int dst_height = dst_roi_.height;
@@ -850,14 +855,13 @@ int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
         // Warp the current image
         remap(src[src_indices_[img_idx]], final_warped_images_[img_idx], xmaps_[img_idx], ymaps_[img_idx],
               INTER_LINEAR);
-        final_warped_images_[img_idx].convertTo(final_warped_images_, CV_32F);
         int dx       = corners_[img_idx].x - dst_roi_.x;
         int dy       = corners_[img_idx].y - dst_roi_.y;
         int img_rows = sizes_[img_idx].height;
         int img_cols = sizes_[img_idx].width;
         int src_rows = src[img_idx].rows;
         int src_cols = src[img_idx].cols;
-
+        parallel_num_ = 4;
         int rows_per_parallel = img_rows / parallel_num_;
 #pragma omp parallel for
         for (int parallel_idx = 0; parallel_idx < parallel_num_; parallel_idx++) {
@@ -867,21 +871,21 @@ int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
                 row_end = img_rows;
 
             uchar *dst_ptr;
-            float *warped_img_ptr   = final_warped_images_[img_idx].ptr<float>(row_start);
-            float *total_weight_ptr = total_weight_maps_[img_idx].ptr<float>(row_start);
+            auto *warped_img_ptr   = final_warped_images_[img_idx].ptr<uchar>(row_start);
+            auto *total_weight_ptr = total_weight_maps_[img_idx].ptr<float>(row_start);
             for (int y = row_start; y < row_end; y++) {
                 dst_ptr = dst_ptr_00 + ((dy + y) * dst_width + dx) * 3;
                 for (int x = 0; x < img_cols; x++) {
                     /* 曝光补偿和融合加权平均 */
-                    (*dst_ptr) += (uchar)(cvRound((*warped_img_ptr) * (*total_weight_ptr)));
+                    (*dst_ptr) += (uchar)(cvRound((float)(*warped_img_ptr) * (*total_weight_ptr)));
                     warped_img_ptr++;
                     dst_ptr++;
 
-                    (*dst_ptr) += (uchar)(cvRound((*warped_img_ptr) * (*total_weight_ptr)));
+                    (*dst_ptr) += (uchar)(cvRound((float)(*warped_img_ptr) * (*total_weight_ptr)));
                     warped_img_ptr++;
                     dst_ptr++;
 
-                    (*dst_ptr) += (uchar)(cvRound((*warped_img_ptr) * (*total_weight_ptr)));
+                    (*dst_ptr) += (uchar)(cvRound((float)(*warped_img_ptr) * (*total_weight_ptr)));
                     warped_img_ptr++;
                     dst_ptr++;
 

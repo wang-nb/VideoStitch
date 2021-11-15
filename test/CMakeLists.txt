@@ -1,4 +1,4 @@
-set(MODULE_NAME get_lut)
+﻿set(MODULE_NAME get_lut)
 aux_source_directory(../offline STITCHER_SRCS)
 add_executable(${MODULE_NAME} getLUTMain.cpp ${STITCHER_SRCS})
 target_link_libraries(${MODULE_NAME} ${OpenCV_LIBS})
