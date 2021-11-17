@@ -11,34 +11,29 @@ History:
        
 ************************************************************/
 
-
 #include "logging.hpp"
 #include "opencv2/opencv.hpp"
-
-using namespace std;
-using namespace cv;
 
 class MyVideoStitcher
 {
 public:
     int init(const std::string &config_path);
-    int stitchImage(vector<Mat> &src, Mat &pano);
+    int stitchImage(std::vector<cv::Mat> &src, cv::Mat &pano);
     int getDstSize(cv::Size &dst_size);
 
 private:
-    int StitchFrameCPU(vector<Mat> &src, Mat &dst);
+    int StitchFrameCPU(std::vector<cv::Mat> &src, cv::Mat &dst);
 
     /* 参数 */
-    vector<int> src_indices_;
-    vector<Point> corners_;
-    vector<Size> sizes_;
-    Rect dst_roi_;
-    vector<Mat> xmaps_;
-    vector<Mat> ymaps_;
-    vector<Mat_<float>> total_weight_maps_;
-
+    std::vector<int> src_indices_;
+    std::vector<cv::Point> corners_;
+    std::vector<cv::Size> sizes_;
+    std::vector<cv::Mat> xmaps_;
+    std::vector<cv::Mat> ymaps_;
+    std::vector<cv::Mat_<float>> total_weight_maps_;
+    cv::Rect dst_roi_;
     /* 缓存 */
-    vector<Mat> final_warped_images_;
+    std::vector<cv::Mat> final_warped_images_;
     int video_num_;
     int parallel_num_;
 };

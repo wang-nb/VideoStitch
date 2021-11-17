@@ -7,17 +7,13 @@
 
 #include "video_stitcher.h"
 
-int MyVideoStitcher::StitchFrameCPU(vector<Mat> &src, Mat &dst)
+int MyVideoStitcher::StitchFrameCPU(std::vector<cv::Mat> &src, cv::Mat &dst)
 {
     int flag = 0;
     if (src.size() != video_num_) {
         flag = -1;
     } else {
-        final_warped_images_.resize(video_num_);
-        for (int j = 0; j < video_num_; j++)
-            final_warped_images_[j].create(sizes_[j], src[src_indices_[j]].type());
-
-        int num_images = (int)src_indices_.size();
+        int num_images = (int) src_indices_.size();
 
         int dst_width  = dst_roi_.width;
         int dst_height = dst_roi_.height;
@@ -27,9 +23,6 @@ int MyVideoStitcher::StitchFrameCPU(vector<Mat> &src, Mat &dst)
         memset(dst_ptr_00, 0, dst_width * dst_height * 3);
 
         for (int img_idx = 0; img_idx < num_images; ++img_idx) {
-            // Warp the current image
-            remap(src[src_indices_[img_idx]], final_warped_images_[img_idx],
-                  xmaps_[img_idx], ymaps_[img_idx], INTER_LINEAR);
             int dx       = corners_[img_idx].x - dst_roi_.x;
             int dy       = corners_[img_idx].y - dst_roi_.y;
             int img_rows = sizes_[img_idx].height;
@@ -73,10 +66,26 @@ int MyVideoStitcher::StitchFrameCPU(vector<Mat> &src, Mat &dst)
     return flag;
 }
 
-int MyVideoStitcher::stitchImage(vector<Mat> &src, Mat &pano)
+int MyVideoStitcher::stitchImage(std::vector<cv::Mat> &src, cv::Mat &pano)
 {
-    StitchFrameCPU(src, pano);
-    return 0;
+    int flag = 0;
+    if (src.size() != video_num_) {
+        flag = -1;
+    } else {
+        final_warped_images_.resize(video_num_);
+        for (int j = 0; j < video_num_; j++)
+            final_warped_images_[j].create(sizes_[j], src[src_indices_[j]].type());
+
+        for (int img_idx = 0; img_idx < video_num_; ++img_idx) {
+            // Warp the current image
+            remap(src[src_indices_[img_idx]], final_warped_images_[img_idx],
+                  xmaps_[img_idx], ymaps_[img_idx],
+                  cv::INTER_LINEAR);
+        }
+        StitchFrameCPU(src, pano);
+    }
+
+    return flag;
 }
 
 int MyVideoStitcher::getDstSize(cv::Size &dst_size)

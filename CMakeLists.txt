@@ -17,6 +17,7 @@ ENDIF ()
 include(cmake/opencv.cmake)
 
 add_definitions(-DSTITCHER_DEBUG -D_CRT_SECURE_NO_WARNINGS)
+add_definitions(-DTEST_TIME_COST)
 
 include_directories(offline util)
 include_directories(${OpenCV_INCLUDE_DIRS})

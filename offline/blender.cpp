@@ -4,13 +4,10 @@
 #include "blender.h"
 #include <iostream>
 
-using namespace std;
-using namespace cv;
-using namespace cv::detail;
-
 static const float WEIGHT_EPS = 1e-10f;
 
-void MyFeatherBlender::createWeightMaps(Rect dst_roi, vector<Point> corners, vector<Mat> &masks, vector<Mat> &weight_maps)
+void MyFeatherBlender::createWeightMaps(cv::Rect dst_roi, std::vector<cv::Point> corners,
+                                        std::vector<cv::Mat> &masks, std::vector<cv::Mat> &weight_maps)
 {
     dst_weight_map_.create(dst_roi.size(), CV_32F);
     dst_weight_map_.setTo(0);
@@ -44,18 +41,19 @@ void MyFeatherBlender::createWeightMaps(Rect dst_roi, vector<Point> corners, vec
     }
 }
 
-void MyFeatherBlender::prepare(Rect dst_roi, vector<Point> corners, vector<Mat> &masks)
+void MyFeatherBlender::prepare(cv::Rect dst_roi, std::vector<cv::Point> corners,
+                               std::vector<cv::Mat> &masks)
 {
     dst_.create(dst_roi.size(), CV_16SC3);
-    dst_.setTo(Scalar::all(0));
+    dst_.setTo(cv::Scalar::all(0));
     dst_mask_.create(dst_roi.size(), CV_8U);
-    dst_mask_.setTo(Scalar::all(0));
+    dst_mask_.setTo(cv::Scalar::all(0));
     dst_roi_ = dst_roi;
 
     this->createWeightMaps(dst_roi, corners, masks, weight_maps_);
 }
 
-void MyFeatherBlender::feed(const Mat &img, const Mat &mask, Point tl, int img_idx)
+void MyFeatherBlender::feed(const cv::Mat &img, const cv::Mat &mask, cv::Point tl, int img_idx)
 {
     CV_Assert(img.type() == CV_16SC3);
     CV_Assert(mask.type() == CV_8U);
@@ -64,8 +62,8 @@ void MyFeatherBlender::feed(const Mat &img, const Mat &mask, Point tl, int img_i
     int dy = tl.y - dst_roi_.y;
 
     for (int y = 0; y < img.rows; ++y) {
-        const Point3_<short> *src_row = img.ptr<Point3_<short>>(y);
-        Point3_<short> *dst_row       = dst_.ptr<Point3_<short>>(dy + y);
+        const cv::Point3_<short> *src_row = img.ptr<cv::Point3_<short>>(y);
+        cv::Point3_<short> *dst_row       = dst_.ptr<cv::Point3_<short>>(dy + y);
         const float *weight_row       = weight_maps_[img_idx].ptr<float>(y);
 
         for (int x = 0; x < img.cols; ++x) {
@@ -76,7 +74,7 @@ void MyFeatherBlender::feed(const Mat &img, const Mat &mask, Point tl, int img_i
     }
 }
 
-void MyFeatherBlender::blend(Mat &dst, Mat &dst_mask)
+void MyFeatherBlender::blend(cv::Mat &dst, cv::Mat &dst_mask)
 {
     dst_mask_ = dst_weight_map_ > WEIGHT_EPS;
     dst       = dst_;

@@ -8,9 +8,6 @@
 #include <iostream>
 #include <string>
 
-using namespace std;
-using namespace cv;
-
 StitcherRemap::StitcherRemap()
 {
     trim_type_ = StitcherRemap::TRIM_NO;
@@ -19,26 +16,26 @@ StitcherRemap::StitcherRemap()
     seam_megapix_       = 0.2f;//-1;//
     is_prepared_        = false;
     conf_thresh_        = 1.f;
-    features_type_      = "orb";//"surf";//
+    features_type_      = "sift";//"surf";//
     ba_cost_func_       = "ray";
     ba_refine_mask_     = "xxxxx";
     is_do_wave_correct_ = true;
-    wave_correct_       = detail::WAVE_CORRECT_HORIZ;
+    wave_correct_       = cv::detail::WAVE_CORRECT_HORIZ;
     warp_type_          = "cylindrical";//"plane";//"apap";//"paniniA2B1";//"transverseMercator";//"spherical";//
     match_conf_         = 0.3f;
     seam_find_type_     = "gc_color";//"voronoi";//
 }
 
-int StitcherRemap::stitch(std::vector<cv::Mat> &src, string &save_path)
+int StitcherRemap::stitch(std::vector<cv::Mat> &src, std::string &save_path)
 {
     size_t video_num = src.size();
-    Mat dst;
+    cv::Mat dst;
     //做一些初始化，并且确定结果视频的分辨率
 
     int prepare_status = Prepare(src);
     //	先用ORB特征测试，错误的话再使用SURF，仍然错误则报错，输入视频不符合条件
     if (prepare_status == STITCH_CONFIG_ERROR) {
-        cout << "video stitch config error!" << endl;
+        std::cout << "video stitch config error!" << std::endl;
         return -1;
     }
     StitchFrame(src, dst);
@@ -46,12 +43,12 @@ int StitcherRemap::stitch(std::vector<cv::Mat> &src, string &save_path)
 #ifdef STITCHER_DEBUG
     imwrite("data/res.jpg", dst);
 #endif
-    string window_name = "视频拼接";
-    namedWindow(window_name);
+    std::string window_name = "视频拼接";
+    cv::namedWindow(window_name);
     imshow(window_name, dst);
-    cout << "\nStitch over" << endl;
-    cout << "\tfull view angle is " << cvRound(view_angle_) << "°" << endl;
-    cout << "\tcenter: (" << -dst_roi_.x << ", " << -dst_roi_.y << ")" << endl;
+    std::cout << "\nStitch over" << std::endl;
+    std::cout << "\tfull view angle is " << cvRound(view_angle_) << "°" << std::endl;
+    std::cout << "\tcenter: (" << -dst_roi_.x << ", " << -dst_roi_.y << ")" << std::endl;
     cv::waitKey(0);
     return 0;
 }
@@ -59,7 +56,7 @@ int StitcherRemap::stitch(std::vector<cv::Mat> &src, string &save_path)
 /*
  *	初始图像可能分辨率很高，先做一步降采样，可以提高时间效率
  */
-void StitcherRemap::SetScales(vector<Mat> &src)
+void StitcherRemap::SetScales(std::vector<cv::Mat> &src)
 {
     if (work_megapix_ < 0)
         work_scale_ = 1.0f;
@@ -75,20 +72,20 @@ void StitcherRemap::SetScales(vector<Mat> &src)
 /*
  *	特征提取，支持SURF和ORB
  */
-int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &features)
+int StitcherRemap::FindFeatures(std::vector<cv::Mat> &src, std::vector<cv::detail::ImageFeatures> &features)
 {
-    Ptr<FeatureDetector> finder;
-    if (features_type_ == "surf") {
-        //finder = new SurfFeaturesDetector();
-    } else if (features_type_ == "orb") {
+    cv::Ptr<cv::FeatureDetector> finder;
+    if (features_type_ == "orb") {
+        finder = cv::ORB::create();
+    } else if (features_type_ == "sift") {
         finder = cv::SIFT::create();//Size(3,1), 1500, 1.3, 5);
     } else {
-        cout << "Unknown 2D features type: '" << features_type_ << "'.\n";
+        std::cout << "Unknown 2D features type: '" << features_type_ << "'.\n";
         return STITCH_CONFIG_ERROR;
     }
 
     int num_images = (int)(src.size());
-    Mat full_img, img;
+    cv::Mat full_img, img;
 
     for (int i = 0; i < num_images; ++i) {
         full_img = src[i].clone();//
@@ -96,9 +93,9 @@ int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &feature
         if (work_megapix_ < 0)
             img = full_img;
         else
-            resize(full_img, img, Size(), work_scale_, work_scale_);
+            resize(full_img, img, cv::Size(), work_scale_, work_scale_);
 
-        finder->detectAndCompute(img, Mat(), features[i].keypoints,
+        finder->detectAndCompute(img, cv::Mat(), features[i].keypoints,
                                  features[i].descriptors, false);
         features[i].img_idx = i;
     }
@@ -112,19 +109,20 @@ int StitcherRemap::FindFeatures(vector<Mat> &src, vector<ImageFeatures> &feature
 /*
  * 特征匹配，然后去除噪声图片。本代码实现时，一旦出现噪声图片，就终止算法
  * 返回值：
- *		0	——	正常
- *		-2	——	存在噪声图片
+ *      0     正常
+ *      -2    存在噪声图片
  */
-int StitcherRemap::MatchImages(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches)
+int StitcherRemap::MatchImages(std::vector<cv::detail::ImageFeatures> &features,
+                               std::vector<cv::detail::MatchesInfo> &pairwise_matches)
 {
     int total_num_images = static_cast<int>(features.size());
 
-    BestOf2NearestMatcher matcher(false, match_conf_);
+    cv::detail::BestOf2NearestMatcher matcher(false, match_conf_);
     matcher(features, pairwise_matches);
     matcher.collectGarbage();
 
     // 去除噪声图像
-    vector<int> indices = leaveBiggestComponent(features, pairwise_matches, conf_thresh_);
+    std::vector<int> indices = leaveBiggestComponent(features, pairwise_matches, conf_thresh_);
     // 一旦出现噪声图片，就终止算法
 
     int num_images = (int)(indices.size());
@@ -139,31 +137,33 @@ int StitcherRemap::MatchImages(vector<ImageFeatures> &features, vector<MatchesIn
 /*
  * 摄像机标定
  */
-int StitcherRemap::CalibrateCameras(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
+int StitcherRemap::CalibrateCameras(std::vector<cv::detail::ImageFeatures> &features,
+                                    std::vector<cv::detail::MatchesInfo> &pairwise_matches,
+                                    std::vector<cv::detail::CameraParams> &cameras)
 {
-    HomographyBasedEstimator estimator;
-    Ptr<detail::BundleAdjusterBase> adjuster;
-    Mat_<uchar> refine_mask;
-    vector<double> focals;
+    cv::detail::HomographyBasedEstimator estimator;
+    cv::Ptr<cv::detail::BundleAdjusterBase> adjuster;
+    cv::Mat_<uchar> refine_mask;
+    std::vector<double> focals;
 
     estimator(features, pairwise_matches, cameras);
 
     for (size_t i = 0; i < (int)cameras.size(); ++i) {
-        Mat R;
+        cv::Mat R;
         cameras[i].R.convertTo(R, CV_32F);
         cameras[i].R = R;
         //LOGLN("Initial intrinsics #" << i << ":\n" << cameras[i].K());
     }
 
-    if (ba_cost_func_ == "reproj") adjuster = new detail::BundleAdjusterReproj();
+    if (ba_cost_func_ == "reproj") adjuster = new cv::detail::BundleAdjusterReproj();
     else if (ba_cost_func_ == "ray")
-        adjuster = new detail::BundleAdjusterRay();
+        adjuster = new cv::detail::BundleAdjusterRay();
     else {
-        cout << "Unknown bundle adjustment cost function: '" << ba_cost_func_ << "'.\n";
+        std::cout << "Unknown bundle adjustment cost function: '" << ba_cost_func_ << "'.\n";
         return STITCH_CONFIG_ERROR;
     }
     adjuster->setConfThresh(conf_thresh_);
-    refine_mask = Mat::zeros(3, 3, CV_8U);
+    refine_mask = cv::Mat::zeros(3, 3, CV_8U);
     if (ba_refine_mask_[0] == 'x') refine_mask(0, 0) = 1;
     if (ba_refine_mask_[1] == 'x') refine_mask(0, 1) = 1;
     if (ba_refine_mask_[2] == 'x') refine_mask(0, 2) = 1;
@@ -185,7 +185,7 @@ int StitcherRemap::CalibrateCameras(vector<ImageFeatures> &features, vector<Matc
         median_focal_len_ = static_cast<float>(focals[focals.size() / 2 - 1] + focals[focals.size() / 2]) * 0.5f;
 
     if (is_do_wave_correct_) {
-        vector<Mat> rmats;
+        std::vector<cv::Mat> rmats;
         for (size_t i = 0; i < cameras.size(); ++i)
             rmats.push_back(cameras[i].R);
         waveCorrect(rmats, wave_correct_);
@@ -201,23 +201,24 @@ int StitcherRemap::CalibrateCameras(vector<ImageFeatures> &features, vector<Matc
 /*
  *	计算水平视角，用于判断是否适用于平面投影
  */
-double StitcherRemap::GetViewAngle(vector<Mat> &src, vector<CameraParams> &cameras)
+double StitcherRemap::GetViewAngle(std::vector<cv::Mat> &src,
+                                   std::vector<cv::detail::CameraParams> &cameras)
 {
-    Ptr<WarperCreator> warper_creator = new cv::CylindricalWarper();
-    Ptr<RotationWarper> warper        = warper_creator->create(median_focal_len_);
+    cv::Ptr<cv::WarperCreator> warper_creator = new cv::CylindricalWarper();
+    cv::Ptr<cv::detail::RotationWarper> warper        = warper_creator->create(median_focal_len_);
 
     int num_images = (int) (src.size());
-    vector<Point> corners;
-    vector<Size> sizes;
+    std::vector<cv::Point> corners;
+    std::vector<cv::Size> sizes;
     for (int i = 0; i < num_images; ++i) {
-        Mat_<float> K;
+        cv::Mat_<float> K;
         cameras[i].K().convertTo(K, CV_32F);
-        Rect roi = warper->warpRoi(Size((int)(src[i].cols * work_scale_),
+        cv::Rect roi = warper->warpRoi(cv::Size((int)(src[i].cols * work_scale_),
                                         (int)(src[i].rows * work_scale_)), K, cameras[i].R);
         corners.push_back(roi.tl());
         sizes.push_back(roi.size());
     }
-    Rect result_roi   = resultRoi(corners, sizes);
+    cv::Rect result_roi   = cv::detail::resultRoi(corners, sizes);
     double view_angle = result_roi.width * 180.0 / (median_focal_len_ * CV_PI);
     return view_angle;
 }
@@ -225,7 +226,10 @@ double StitcherRemap::GetViewAngle(vector<Mat> &src, vector<CameraParams> &camer
 /*
  *	计算接缝之前，需要先把原始图像和mask按照相机参数投影
  */
-int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &masks_warped, vector<Mat> &images_warped)
+int StitcherRemap::WarpForSeam(std::vector<cv::Mat> &src,
+                               std::vector<cv::detail::CameraParams> &cameras,
+                               std::vector<cv::Mat> &masks_warped,
+                               std::vector<cv::Mat> &images_warped)
 {
     // Warp images and their masks
     {
@@ -266,13 +270,13 @@ int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, 
     }
 
     float warp_scale           = static_cast<float>(median_focal_len_ * seam_scale_ / work_scale_);
-    Ptr<RotationWarper> warper = warper_creator_->create(warp_scale);
+    cv::Ptr<cv::detail::RotationWarper> warper = warper_creator_->create(warp_scale);
     int full_pano_width        = cvFloor(warp_scale * 2 * CV_PI);
 
     int num_images = (int) (src.size());
-    Mat img, mask;
+    cv::Mat img, mask;
     for (int i = 0; i < num_images; ++i) {
-        Mat_<float> K;
+        cv::Mat_<float> K;
         cameras[i].K().convertTo(K, CV_32F);
         float swa = (float) seam_scale_ / work_scale_;
         K(0, 0) *= swa;
@@ -283,23 +287,25 @@ int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, 
         if (seam_megapix_ < 0)
             img = src[i].clone();
         else
-            resize(src[i], img, Size(), seam_scale_, seam_scale_);
+            resize(src[i], img, cv::Size(), seam_scale_, seam_scale_);
 
         mask.create(img.size(), CV_8U);
-        mask.setTo(Scalar::all(255));
-        Mat tmp_mask_warped, tmp_img_warped;
-        Point tmp_corner;
-        Size tmp_size;
-        warper->warp(mask, K, cameras[i].R, INTER_NEAREST, BORDER_CONSTANT, tmp_mask_warped);
+        mask.setTo(cv::Scalar::all(255));
+        cv::Mat tmp_mask_warped, tmp_img_warped;
+        cv::Point tmp_corner;
+        cv::Size tmp_size;
+        warper->warp(mask, K, cameras[i].R, cv::INTER_NEAREST,
+                     cv::BORDER_CONSTANT, tmp_mask_warped);
 
         //	考虑360度拼接的特殊情况
-        tmp_corner = warper->warp(img, K, cameras[i].R, INTER_LINEAR, BORDER_REFLECT, tmp_img_warped);
+        tmp_corner = warper->warp(img, K, cameras[i].R,cv::INTER_LINEAR,
+                                  cv::BORDER_REFLECT, tmp_img_warped);
         //cout << "warped width = " << tmp_mask_warped.cols << ", pano width = " << full_pano_width << endl;
         if (abs(tmp_mask_warped.cols - full_pano_width) <= 10) {
             int x1, x2;
             FindWidestInpaintRange(tmp_mask_warped, x1, x2);
-            Mat mask1, mask2, img1, img2;
-            Rect rect1(0, 0, x1, tmp_mask_warped.rows), rect2(x2 + 1, 0, tmp_mask_warped.cols - 1 - x2, tmp_mask_warped.rows);
+            cv::Mat mask1, mask2, img1, img2;
+            cv::Rect rect1(0, 0, x1, tmp_mask_warped.rows), rect2(x2 + 1, 0, tmp_mask_warped.cols - 1 - x2, tmp_mask_warped.rows);
             tmp_mask_warped(rect1).copyTo(mask1);
             tmp_mask_warped(rect2).copyTo(mask2);
             masks_warped.push_back(mask1);
@@ -326,11 +332,11 @@ int StitcherRemap::WarpForSeam(vector<Mat> &src, vector<CameraParams> &cameras, 
 }
 
 /*
- *	解决360°拼接问题。对于横跨360°接缝的图片，找到最宽的inpaint区域[x1, x2]
+ *	解决360°拼接问题。对于横跨360°接缝的图片，找到最宽的 inpaint 区域[x1, x2]
  */
-int StitcherRemap::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
+int StitcherRemap::FindWidestInpaintRange(cv::Mat mask, int &x1, int &x2)
 {
-    vector<int> sum_row(mask.cols);
+    std::vector<int> sum_row(mask.cols);
     uchar *mask_ptr = mask.ptr<uchar>(0);
     for (int x = 0; x < mask.cols; x++)
         sum_row[x] = 0;
@@ -358,32 +364,33 @@ int StitcherRemap::FindWidestInpaintRange(Mat mask, int &x1, int &x2)
 /*
  *	计算接缝
  */
-int StitcherRemap::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_warped)
+int StitcherRemap::FindSeam(std::vector<cv::Mat> &images_warped,
+                            std::vector<cv::Mat> &masks_warped)
 {
     int num_images = (int) (images_warped.size());
-    vector<UMat> images_warped_f(num_images);
-    vector<UMat> masks_warped_f(num_images);
+    std::vector<cv::UMat> images_warped_f(num_images);
+    std::vector<cv::UMat> masks_warped_f(num_images);
     for (int i = 0; i < num_images; ++i) {
         images_warped[i].convertTo(images_warped_f[i], CV_32F);
         masks_warped[i].convertTo(masks_warped_f[i], CV_8UC1);
     }
 
-    Ptr<SeamFinder> seam_finder;
+    cv::Ptr<cv::detail::SeamFinder> seam_finder;
 
     if (seam_find_type_ == "no")
-        seam_finder = new detail::NoSeamFinder();
+        seam_finder = new cv::detail::NoSeamFinder();
     else if (seam_find_type_ == "voronoi")
-        seam_finder = new detail::VoronoiSeamFinder();
+        seam_finder = new cv::detail::VoronoiSeamFinder();
     else if (seam_find_type_ == "gc_color") {
-        seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR);
+        seam_finder = new cv::detail::GraphCutSeamFinder(cv::detail::GraphCutSeamFinderBase::COST_COLOR);
     } else if (seam_find_type_ == "gc_colorgrad") {
-        seam_finder = new detail::GraphCutSeamFinder(GraphCutSeamFinderBase::COST_COLOR_GRAD);
+        seam_finder = new cv::detail::GraphCutSeamFinder(cv::detail::GraphCutSeamFinderBase::COST_COLOR_GRAD);
     } else if (seam_find_type_ == "dp_color")
-        seam_finder = new detail::DpSeamFinder(DpSeamFinder::COLOR);
+        seam_finder = new cv::detail::DpSeamFinder(cv::detail::DpSeamFinder::COLOR);
     else if (seam_find_type_ == "dp_colorgrad")
-        seam_finder = new detail::DpSeamFinder(DpSeamFinder::COLOR_GRAD);
+        seam_finder = new cv::detail::DpSeamFinder(cv::detail::DpSeamFinder::COLOR_GRAD);
     if (seam_finder.empty()) {
-        cout << "Can't create the following seam finder '" << seam_find_type_ << "'\n";
+        std::cout << "Can't create the following seam finder '" << seam_find_type_ << "'\n";
         return STITCH_CONFIG_ERROR;
     }
     seam_finder->find(images_warped_f, corners_, masks_warped_f);
@@ -396,17 +403,18 @@ int StitcherRemap::FindSeam(vector<Mat> &images_warped, vector<Mat> &masks_warpe
 /*
  *	恢复原始图像大小
  */
-int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vector<Mat> &seam_masks)
+int StitcherRemap::Rescale(std::vector<cv::Mat> &src, std::vector<cv::detail::CameraParams> &cameras,
+                           std::vector<cv::Mat> &seam_masks)
 {
     median_focal_len_          = median_focal_len_ / work_scale_;
-    Ptr<RotationWarper> warper = warper_creator_->create(median_focal_len_);
+    cv::Ptr<cv::detail::RotationWarper> warper = warper_creator_->create(median_focal_len_);
     int full_pano_width        = cvFloor(median_focal_len_ * 2 * CV_PI);
 
     //cout << "median focal length: " << median_focal_len_ << endl;
 
     // Update corners and sizes
     int num_images = (int) (src.size());
-    Mat tmp_mask, tmp_dilated_mask, tmp_seam_mask;
+    cv::Mat tmp_mask, tmp_dilated_mask, tmp_seam_mask;
     corners_.clear();
     sizes_.clear();
     for (int src_idx = 0, seam_idx = 0; src_idx < num_images; ++src_idx) {
@@ -415,28 +423,29 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
         cameras[src_idx].ppx /= work_scale_;
         cameras[src_idx].ppy /= work_scale_;
 
-        Mat K;
+        cv::Mat K;
         cameras[src_idx].K().convertTo(K, CV_32F);
 
         // 计算最终image warp的坐标映射矩阵
 
-        Mat tmp_xmap, tmp_ymap;
+        cv::Mat tmp_xmap, tmp_ymap;
         warper->buildMaps(src[src_idx].size(), K, cameras[src_idx].R, tmp_xmap, tmp_ymap);
 
         // Warp the current image mask
-        Mat tmp_mask_warped, tmp_final_blend_mask;
+        cv::Mat tmp_mask_warped, tmp_final_blend_mask;
         tmp_mask.create(src[src_idx].size(), CV_8U);
-        tmp_mask.setTo(Scalar::all(255));
-        Point tmp_corner = warper->warp(tmp_mask, K, cameras[src_idx].R, INTER_NEAREST, BORDER_CONSTANT, tmp_mask_warped);
+        tmp_mask.setTo(cv::Scalar::all(255));
+        cv::Point tmp_corner = warper->warp(tmp_mask, K, cameras[src_idx].R,
+                                            cv::INTER_NEAREST, cv::BORDER_CONSTANT, tmp_mask_warped);
 
         //	考虑360度拼接的特殊情况
         if (abs(tmp_mask_warped.cols - full_pano_width) <= 10) {
             int x1, x2;
             FindWidestInpaintRange(tmp_mask_warped, x1, x2);
-            Mat warped_mask[2], blend_mask[2], xmap[2], ymap[2];
-            Rect rect[2];
-            rect[0] = Rect(0, 0, x1, tmp_mask_warped.rows);
-            rect[1] = Rect(x2 + 1, 0, tmp_mask_warped.cols - 1 - x2, tmp_mask_warped.rows);
+            cv::Mat warped_mask[2], blend_mask[2], xmap[2], ymap[2];
+            cv::Rect rect[2];
+            rect[0] = cv::Rect(0, 0, x1, tmp_mask_warped.rows);
+            rect[1] = cv::Rect(x2 + 1, 0, tmp_mask_warped.cols - 1 - x2, tmp_mask_warped.rows);
             for (int j = 0; j < 2; j++) {
                 tmp_mask_warped(rect[j]).copyTo(warped_mask[j]);
                 final_warped_masks_.push_back(warped_mask[j]);
@@ -448,7 +457,7 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
                 ymaps_.push_back(ymap[j]);
 
                 // 计算总的mask = warp_mask & seam_mask
-                dilate(seam_masks[seam_idx], tmp_dilated_mask, Mat());//膨胀
+                dilate(seam_masks[seam_idx], tmp_dilated_mask, cv::Mat());//膨胀
                 resize(tmp_dilated_mask, tmp_seam_mask, rect[j].size());
                 final_blend_masks_.push_back(warped_mask[j] & tmp_seam_mask);
 
@@ -465,11 +474,11 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
             final_warped_masks_.push_back(tmp_mask_warped);
             corners_.push_back(tmp_corner);
 
-            Size sz = tmp_mask_warped.size();
+            cv::Size sz = tmp_mask_warped.size();
             sizes_.push_back(sz);
 
             //	计算总的mask = warp_mask & seam_mask
-            dilate(seam_masks[seam_idx], tmp_dilated_mask, Mat());//膨胀
+            dilate(seam_masks[seam_idx], tmp_dilated_mask, cv::Mat());//膨胀
             resize(tmp_dilated_mask, tmp_seam_mask, sz);
             final_blend_masks_.push_back(tmp_mask_warped & tmp_seam_mask);
 
@@ -479,7 +488,7 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
         }
     }
 
-    dst_roi_      = resultRoi(corners_, sizes_);
+    dst_roi_      = cv::detail::resultRoi(corners_, sizes_);
     int parts_num = (int)sizes_.size();
     final_warped_images_.resize(parts_num);
     for (int j = 0; j < parts_num; j++)
@@ -495,7 +504,7 @@ int StitcherRemap::Rescale(vector<Mat> &src, vector<CameraParams> &cameras, vect
 /*
  *	拼接结果可能是不规则形状，裁剪成方形
  */
-int StitcherRemap::TrimRect(Rect rect)
+int StitcherRemap::TrimRect(cv::Rect rect)
 {
     // 计算每幅图像的rect，并修改xmap和ymap
     int top        = rect.y;
@@ -513,15 +522,15 @@ int StitcherRemap::TrimRect(Rect rect)
         sizes_[i].height = bottom_i - top_i + 1;
         sizes_[i].width  = right_i - left_i + 1;
 
-        Rect map_rect(left_i - corners_[i].x, top_i - corners_[i].y,
+        cv::Rect map_rect(left_i - corners_[i].x, top_i - corners_[i].y,
                       sizes_[i].width, sizes_[i].height);
 
-        Mat tmp_map = xmaps_[i].clone();
+        cv::Mat tmp_map = xmaps_[i].clone();
         tmp_map(map_rect).copyTo(xmaps_[i]);
         tmp_map = ymaps_[i].clone();
         tmp_map(map_rect).copyTo(ymaps_[i]);
 
-        Mat tmp_img = final_blend_masks_[i].clone();
+        cv::Mat tmp_img = final_blend_masks_[i].clone();
         tmp_img(map_rect).copyTo(final_blend_masks_[i]);
 
         corners_[i].x = left_i;
@@ -538,13 +547,13 @@ int StitcherRemap::TrimRect(Rect rect)
 /*
  *	如果是平面投影的话，可以自动去除未填充区域
  */
-int StitcherRemap::TrimInpaint(vector<Mat> &src)
+int StitcherRemap::TrimInpaint(std::vector<cv::Mat> &src)
 {
     int num_images = (int) (src.size());
 
     // 先计算最终图像的mask
-    dst_roi_ = resultRoi(corners_, sizes_);
-    Mat dst  = Mat::zeros(dst_roi_.height, dst_roi_.width, CV_8UC1);
+    dst_roi_ = cv::detail::resultRoi(corners_, sizes_);
+    cv::Mat dst  = cv::Mat::zeros(dst_roi_.height, dst_roi_.width, CV_8UC1);
     for (int i = 0; i < num_images; i++) {
         int dx       = corners_[i].x - dst_roi_.x;
         int dy       = corners_[i].y - dst_roi_.y;
@@ -607,15 +616,15 @@ int StitcherRemap::TrimInpaint(vector<Mat> &src)
         sizes_[i].height = bottom_i - top_i + 1;
         sizes_[i].width  = right_i - left_i + 1;
 
-        Rect rect(left_i - corners_[i].x, top_i - corners_[i].y,
+        cv::Rect rect(left_i - corners_[i].x, top_i - corners_[i].y,
                   sizes_[i].width, sizes_[i].height);
 
-        Mat tmp_map = xmaps_[i].clone();
+        cv::Mat tmp_map = xmaps_[i].clone();
         tmp_map(rect).copyTo(xmaps_[i]);
         tmp_map = ymaps_[i].clone();
         tmp_map(rect).copyTo(ymaps_[i]);
 
-        Mat tmp_img = final_blend_masks_[i].clone();
+        cv::Mat tmp_img = final_blend_masks_[i].clone();
         tmp_img(rect).copyTo(final_blend_masks_[i]);
 
         corners_[i].x = left_i;
@@ -650,7 +659,7 @@ bool StitcherRemap::IsRowCrossInpaint(uchar *row, int width)
     return false;
 }
 
-int StitcherRemap::Prepare(vector<Mat> &src)
+int StitcherRemap::Prepare(std::vector<cv::Mat> &src)
 {
     cv::setBreakOnError(true);
     int num_images = static_cast<int>(src.size());
@@ -669,7 +678,7 @@ int StitcherRemap::Prepare(vector<Mat> &src)
     return flag;
 }
 
-int StitcherRemap::PrepareClassical(vector<Mat> &src)
+int StitcherRemap::PrepareClassical(std::vector<cv::Mat> &src)
 {
     int num_images = static_cast<int>(src.size());
     LOG(INFO) << ("\t~Preparing...");
@@ -685,7 +694,7 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
 
         // 特征检测
         LOG(INFO) << ("\t~finding features...");
-        vector<ImageFeatures> features(num_images);
+        std::vector<cv::detail::ImageFeatures> features(num_images);
         this->FindFeatures(src, features);
 #ifdef STITCHER_DEBUG
         for (int i = 0; i < (int)features.size(); i++) {
@@ -698,14 +707,14 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
 
         // 特征匹配，并去掉噪声图片
         LOG(INFO) << ("\t~matching images...");
-        vector<MatchesInfo> pairwise_matches;
+        std::vector<cv::detail::MatchesInfo> pairwise_matches;
         int retrun_flag = this->MatchImages(features, pairwise_matches);
 #ifdef STITCHER_DEBUG
         cv::Mat pairwiseImg;
         drawMatches(src[0], features[0].keypoints, src[1], features[1].keypoints,
-                    pairwise_matches[1].matches, pairwiseImg, Scalar::all(-1),
-                    Scalar::all(-1), vector<char>(),
-                    DrawMatchesFlags::DEFAULT);
+                    pairwise_matches[1].matches, pairwiseImg, cv::Scalar::all(-1),
+                    cv::Scalar::all(-1), std::vector<char>(),
+                    cv::DrawMatchesFlags::DEFAULT);
         cv::imwrite("data/match.jpg", pairwiseImg);
 #endif
         if (retrun_flag != 0)
@@ -726,10 +735,14 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
 
     // 为接缝的计算做Warp
     LOG(INFO) << ("\t~warping for seaming...");
-    vector<Mat> masks_warped;
-    vector<Mat> images_warped;
+    std::vector<cv::Mat> masks_warped;
+    std::vector<cv::Mat> images_warped;
     this->WarpForSeam(src, cameras_, masks_warped, images_warped);
 
+    for(int i = 0; i < (int)masks_warped.size(); i++){
+        cv::imwrite("data/masks_warped_" + std::to_string(i) + ".jpg", masks_warped[i]);
+        cv::imwrite("data/images_warped_" + std::to_string(i) + ".jpg", images_warped[i]);
+    }
     // 计算接缝
     //LOGLN("\t~finding seam...");
     this->FindSeam(images_warped, masks_warped);
@@ -751,9 +764,9 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
 
     // 计算融合时，各像素的权值
     LOG(INFO) << ("\t~blending...");
-    Size dst_sz       = dst_roi_.size();
+    cv::Size dst_sz       = dst_roi_.size();
     float blend_width = sqrt(static_cast<float>(dst_sz.area())) * blend_strength_ / 100.f;
-    blender_.setSharpness(0.1f);
+    blender_.setSharpness(1.0f);
     blender_.createWeightMaps(dst_roi_, corners_,
                               final_blend_masks_, blend_weight_maps_);
 
@@ -793,7 +806,7 @@ int StitcherRemap::PrepareClassical(vector<Mat> &src)
     return STITCH_SUCCESS;
 }
 
-int StitcherRemap::StitchFrame(vector<Mat> &src, Mat &dst)
+int StitcherRemap::StitchFrame(std::vector<cv::Mat> &src, cv::Mat &dst)
 {
     if (!is_prepared_) {
         int flag = Prepare(src);
@@ -840,7 +853,7 @@ int StitcherRemap::saveRemap(const std::string &save_path)
     return 0;
 }
 
-int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
+int StitcherRemap::StitchFrameCPU(std::vector<cv::Mat> &src, cv::Mat &dst)
 {
     int num_images = (int)src_indices_.size();
 
@@ -853,8 +866,8 @@ int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
 
     for (int img_idx = 0; img_idx < num_images; ++img_idx) {
         // Warp the current image
-        remap(src[src_indices_[img_idx]], final_warped_images_[img_idx], xmaps_[img_idx], ymaps_[img_idx],
-              INTER_LINEAR);
+        remap(src[src_indices_[img_idx]], final_warped_images_[img_idx],
+              xmaps_[img_idx], ymaps_[img_idx],cv::INTER_LINEAR);
         int dx       = corners_[img_idx].x - dst_roi_.x;
         int dy       = corners_[img_idx].y - dst_roi_.y;
         int img_rows = sizes_[img_idx].height;
@@ -897,18 +910,20 @@ int StitcherRemap::StitchFrameCPU(vector<Mat> &src, Mat &dst)
     return 0;
 }
 
-int StitcherRemap::RegistEvaluation(vector<ImageFeatures> &features, vector<MatchesInfo> &pairwise_matches, vector<CameraParams> &cameras)
+int StitcherRemap::RegistEvaluation(std::vector<cv::detail::ImageFeatures> &features,
+                                    std::vector<cv::detail::MatchesInfo> &pairwise_matches,
+                                    std::vector<cv::detail::CameraParams> &cameras)
 {
     int num_images             = (int)features.size();
-    Ptr<RotationWarper> warper = warper_creator_->create(median_focal_len_);
+    cv::Ptr<cv::detail::RotationWarper> warper = warper_creator_->create(median_focal_len_);
 
-    MatchesInfo matches_info;
-    vector<vector<Point2f>> warped_fpts;
+    cv::detail::MatchesInfo matches_info;
+    std::vector<std::vector<cv::Point2f>> warped_fpts;
     warped_fpts.resize(num_images);
     for (int i = 0; i < num_images; i++) {
         int fpts_num = (int)features[i].keypoints.size();
         warped_fpts[i].resize(fpts_num);
-        Mat K;
+        cv::Mat K;
         cameras[i].K().convertTo(K, CV_32F);
         for (int j = 0; j < fpts_num; j++)
             warped_fpts[i][j] = warper->warpPoint(features[i].keypoints[j].pt, K, cameras[i].R);
@@ -930,9 +945,9 @@ int StitcherRemap::RegistEvaluation(vector<ImageFeatures> &features, vector<Matc
             double total_error = 0;
             for (int k = 0; k < matches_size; k++) {
                 if (matches_info.inliers_mask[k]) {
-                    const DMatch &m = matches_info.matches[k];
-                    Point2f p1      = warped_fpts[i][m.queryIdx];
-                    Point2f p2      = warped_fpts[j][m.trainIdx];
+                    const cv::DMatch &m = matches_info.matches[k];
+                    cv::Point2f p1      = warped_fpts[i][m.queryIdx];
+                    cv::Point2f p2      = warped_fpts[j][m.trainIdx];
                     total_error += ((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y));
                 }
             }
@@ -954,10 +969,10 @@ StitcherRemap::~StitcherRemap()
 //	第一行是中间焦距median_focal_len_
 //	之后每一行是一个相机--
 //		数据依次是focal、aspect、ppx、ppy、R、t
-void StitcherRemap::saveCameraParam(const string& filename)
+void StitcherRemap::saveCameraParam(const std::string& filename)
 {
-    ofstream cp_file(filename.c_str());
-    cp_file << median_focal_len_ << endl;
+    std::ofstream cp_file(filename.c_str());
+    cp_file << median_focal_len_ << std::endl;
     for (auto cp : cameras_) {
         cp_file << cp.focal << " " << cp.aspect << " " << cp.ppx << " " << cp.ppy;
         for (int r = 0; r < 3; r++)
@@ -965,29 +980,29 @@ void StitcherRemap::saveCameraParam(const string& filename)
                 cp_file << " " << cp.R.at<float>(r, c);
         for (int r = 0; r < 3; r++)
             cp_file << " " << cp.t.at<double>(r, 0);
-        cp_file << endl;
+        cp_file << std::endl;
     }
     cp_file.close();
 }
 
-int StitcherRemap::loadCameraParam(const string& filename)
+int StitcherRemap::loadCameraParam(const std::string& filename)
 {
-    ifstream cp_file(filename.c_str());
-    string line;
+    std::ifstream cp_file(filename.c_str());
+    std::string line;
 
     //	median_focal_len_
     if (!getline(cp_file, line))
         return -1;
-    stringstream mfl_string_stream;
+    std::stringstream mfl_string_stream;
     mfl_string_stream << line;
     mfl_string_stream >> median_focal_len_;
 
     //	每行一个摄像机
     cameras_.clear();
     while (getline(cp_file, line)) {
-        stringstream cp_string_stream;
+        std::stringstream cp_string_stream;
         cp_string_stream << line;
-        CameraParams cp;
+        cv::detail::CameraParams cp;
         cp.R.create(3, 3, CV_32F);
         cp.t.create(3, 1, CV_64F);
         cp_string_stream >> cp.focal >> cp.aspect >> cp.ppx >> cp.ppy;

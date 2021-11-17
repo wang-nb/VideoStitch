@@ -15,11 +15,6 @@ History:
 #include "opencv2/stitching/detail/blenders.hpp"
 #include "opencv2/stitching/detail/util.hpp"
 
-using namespace std;
-using namespace cv;
-using namespace cv::detail;
-
-
 class MyFeatherBlender
 {
 public:
@@ -32,26 +27,28 @@ public:
 
     void setSharpness(float val) { m_sharpness_ = val; }
 
-    void createWeightMaps(Rect dst_roi, vector<Point> corners, vector<Mat> &masks, vector<Mat> &weight_maps);
+    void createWeightMaps(cv::Rect dst_roi, std::vector<cv::Point> corners,
+                          std::vector<cv::Mat> &masks, std::vector<cv::Mat> &weight_maps);
 
-    void prepare(Rect dst_roi, vector<Point> corners, vector<Mat> &masks);
+    void prepare(cv::Rect dst_roi, std::vector<cv::Point> corners,
+                 std::vector<cv::Mat> &masks);
 
     void clear()
     {
-        dst_.setTo(Scalar::all(0));
+        dst_.setTo(cv::Scalar::all(0));
     }
 
-    void feed(const Mat &img, const Mat &mask, Point tl, int img_idx);
+    void feed(const cv::Mat &img, const cv::Mat &mask, cv::Point tl, int img_idx);
 
-    void blend(Mat &dst, Mat &dst_mask);
+    void blend(cv::Mat &dst, cv::Mat &dst_mask);
 
 private:
     int m_image_num = 0;
     float m_sharpness_ = 1.0f;
-    vector<Mat> weight_maps_;
-    Mat dst_weight_map_;
+    std::vector<cv::Mat> weight_maps_;
+    cv::Mat dst_weight_map_;
 
 protected:
-    Mat dst_, dst_mask_;
-    Rect dst_roi_;
+    cv::Mat dst_, dst_mask_;
+    cv::Rect dst_roi_;
 };

@@ -1,8 +1,8 @@
 ﻿//
 // Created by Administrator on 2021-11-15.
 //
-#include "../offline/GetRemapLUT.h"
 #include "opencv2/opencv.hpp"
+#include "GetRemapLUT.h"
 
 static void printUsage()
 {
@@ -15,10 +15,10 @@ static void printUsage()
                  "    --trim  x1 y1 x2 y2		按照x1 y1 x2 y2构成的矩形裁剪最终结果\n"
                  "    --cp camera_param_path	使用camera_param_path的摄像机参数\n";
 }
-static std::vector<string> video_names;
+static std::vector<std::string> video_names;
 static bool is_trim = false, is_trim_rect = false;
-static string warp_type = "cylindrical";
-static Rect trim_rect;
+static std::string warp_type = "cylindrical";
+static cv::Rect trim_rect;
 static int parseCmdArgs(int argc, char *argv[])
 {
     if (argc == 1) {
@@ -28,12 +28,12 @@ static int parseCmdArgs(int argc, char *argv[])
 
     video_names.clear();
     for (int i = 1; i < argc; i++) {
-        if (string(argv[i]) == "--help" || string(argv[i]) == "/?") {
+        if (std::string(argv[i]) == "--help" || std::string(argv[i]) == "/?") {
             printUsage();
             return -1;
-        } else if (string(argv[i]) == "-trim")
+        } else if (std::string(argv[i]) == "-trim")
             is_trim = true;
-        else if (string(argv[i]) == "--trim") {
+        else if (std::string(argv[i]) == "--trim") {
             is_trim = is_trim_rect = true;
             int x1                 = atoi(argv[i + 1]);
             int y1                 = atoi(argv[i + 2]);
@@ -41,7 +41,7 @@ static int parseCmdArgs(int argc, char *argv[])
             int y2                 = atoi(argv[i + 4]);
             trim_rect              = cv::Rect(x1, y1, x2 - x1, y2 - y1);
             i += 4;
-        } else if (string(argv[i]) == "-plane")
+        } else if (std::string(argv[i]) == "-plane")
             warp_type = "plane";
         else
             video_names.push_back(argv[i]);
@@ -64,11 +64,11 @@ static int VideoStitch(int argc, char *argv[])
     for (size_t i = 0; i < video_num; i++) {
         imgs[i] = cv::imread(video_names[i]);
         if (imgs[i].empty()) {
-            cout << "Fail to open " << video_names[i] << endl;
+            std::cout << "Fail to open " << video_names[i] << std::endl;
             return -1;
         }
     }
-    cout << "Video capture success" << endl;
+    std::cout << "Video capture success" << std::endl;
 
     StitcherRemap video_stitcher;
     //	拼接参数

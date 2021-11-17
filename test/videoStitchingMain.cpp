@@ -1,9 +1,9 @@
 ﻿//
 // Created by bing on 2021/11/10.
 //
-#include "logging.hpp"
 #include "opencv2/opencv.hpp"
 #include "video_stitcher.h"
+#include "logging.hpp"
 
 int stitchVideo(const std::vector<std::string> &video_names,
                 const std::string &save_video, MyVideoStitcher &videoStitcher)
@@ -28,6 +28,7 @@ int stitchVideo(const std::vector<std::string> &video_names,
         cv::VideoWriter mp4;
         mp4.open(save_video, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
                  25, dst_size);
+        NEW_TIME_VALUE
         while (true) {
             int flag = 0;
             for (int i = 0; i < video_nums; i++) {
@@ -37,7 +38,9 @@ int stitchVideo(const std::vector<std::string> &video_names,
                 }
             }
             if (0 == flag) {
+                START_GETTIME
                 videoStitcher.stitchImage(frames, pano);
+                END_GETTIME("stitch ")
                 cv::imshow("pano", pano);
                 mp4 << pano;
                 int key = cv::waitKey(1);
