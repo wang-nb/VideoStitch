@@ -2,7 +2,7 @@
 // Created by Administrator on 2021-11-15.
 //
 
-#include "GetRemapLut.h"
+#include "GetRemapLUT.h"
 
 #include <fstream>
 #include <iostream>
@@ -61,12 +61,12 @@ void StitcherRemap::SetScales(std::vector<cv::Mat> &src)
     if (work_megapix_ < 0)
         work_scale_ = 1.0f;
     else
-        work_scale_ = min(1.0f, sqrt(work_megapix_ * 1e6f / src[0].size().area()));
+        work_scale_ = std::min(1.0f, (float)sqrt(work_megapix_ * 1e6f / src[0].size().area()));
 
     if (seam_megapix_ < 0)
         seam_scale_ = 1.0f;
     else
-        seam_scale_ = min(1.0f, sqrt(seam_megapix_ * 1e6f / src[0].size().area()));
+        seam_scale_ = std::min(1.0f, (float)sqrt(seam_megapix_ * 1e6f / src[0].size().area()));
 }
 
 /*
@@ -175,7 +175,6 @@ int StitcherRemap::CalibrateCameras(std::vector<cv::detail::ImageFeatures> &feat
     // Find median focal length
     for (size_t i = 0; i < cameras.size(); ++i) {
         focals.push_back(cameras[i].focal);
-        //LOGLN("Camera #" << i+1 << ":\n" << cameras[i].t << cameras[i].R);
     }
 
     sort(focals.begin(), focals.end());
@@ -219,6 +218,7 @@ double StitcherRemap::GetViewAngle(std::vector<cv::Mat> &src,
         sizes.push_back(roi.size());
     }
     cv::Rect result_roi   = cv::detail::resultRoi(corners, sizes);
+    //柱面投影后的融合区域大小确定水平角度
     double view_angle = result_roi.width * 180.0 / (median_focal_len_ * CV_PI);
     return view_angle;
 }
@@ -514,10 +514,10 @@ int StitcherRemap::TrimRect(cv::Rect rect)
     int num_images = (int) xmaps_.size();
     for (int i = 0; i < num_images; i++) {
         int top_i, bottom_i, left_i, right_i;
-        top_i    = max(dst_roi_.y + top, corners_[i].y);
-        left_i   = max(dst_roi_.x + left, corners_[i].x);
-        bottom_i = min(corners_[i].y + sizes_[i].height - 1, dst_roi_.y + bottom);
-        right_i  = min(corners_[i].x + sizes_[i].width - 1, dst_roi_.x + right);
+        top_i    = std::max(dst_roi_.y + top, corners_[i].y);
+        left_i   = std::max(dst_roi_.x + left, corners_[i].x);
+        bottom_i = std::min(corners_[i].y + sizes_[i].height - 1, dst_roi_.y + bottom);
+        right_i  = std::min(corners_[i].x + sizes_[i].width - 1, dst_roi_.x + right);
 
         sizes_[i].height = bottom_i - top_i + 1;
         sizes_[i].width  = right_i - left_i + 1;
@@ -608,10 +608,10 @@ int StitcherRemap::TrimInpaint(std::vector<cv::Mat> &src)
     // 计算每幅图像的rect，并修改xmap和ymap
     for (int i = 0; i < num_images; i++) {
         int top_i, bottom_i, left_i, right_i;
-        top_i    = max(dst_roi_.y + top, corners_[i].y);
-        left_i   = max(dst_roi_.x + left, corners_[i].x);
-        bottom_i = min(corners_[i].y + sizes_[i].height - 1, dst_roi_.y + bottom);
-        right_i  = min(corners_[i].x + sizes_[i].width - 1, dst_roi_.x + right);
+        top_i    = std::max(dst_roi_.y + top, corners_[i].y);
+        left_i   = std::max(dst_roi_.x + left, corners_[i].x);
+        bottom_i = std::min(corners_[i].y + sizes_[i].height - 1, dst_roi_.y + bottom);
+        right_i  = std::min(corners_[i].x + sizes_[i].width - 1, dst_roi_.x + right);
 
         sizes_[i].height = bottom_i - top_i + 1;
         sizes_[i].width  = right_i - left_i + 1;

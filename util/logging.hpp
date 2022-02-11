@@ -261,17 +261,17 @@ namespace my_log
 #include <sys/time.h>
 #include <time.h>
 #define NEW_TIME_VALUE                  \
-    struct timeval startTime, endTime; \
+    struct timeval startTime, endTime;  \
     float Timeuse;
 
 #define START_GETTIME \
     gettimeofday(&startTime, NULL);
 
-#define END_GETTIME(print_str)                                                                       \
+#define END_GETTIME(num, print_str)                                                                       \
     gettimeofday(&endTime, NULL);                                                                    \
-    Timeuse = 1000000 * (endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec); \
-    Timeuse /= 1000000;                                                                              \
-    fprintf(stderr, "%s, Timeuse = %f ms\n", print_str, Timeuse * 1000);
+    Timeuse = 1000000.0f * (endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec); \
+    Timeuse /= 1000000.0f;                                                                              \
+    fprintf(stderr, "%s, Timeuse = %f ms\n", print_str, Timeuse * 1000.0f/num);
 
 #else
 #include <windows.h>

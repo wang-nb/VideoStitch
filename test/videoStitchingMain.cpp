@@ -40,7 +40,7 @@ int stitchVideo(const std::vector<std::string> &video_names,
             if (0 == flag) {
                 START_GETTIME
                 videoStitcher.stitchImage(frames, pano);
-                END_GETTIME("stitch ")
+                END_GETTIME(1, "stitch ")
                 cv::imshow("pano", pano);
                 mp4 << pano;
                 int key = cv::waitKey(1);

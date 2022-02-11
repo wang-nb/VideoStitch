@@ -8,6 +8,7 @@ IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     #OpenCV
 ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     # using GCC
+    set(CMAKE_BUILD_TYPE "Release")
 ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(THIRD_PARTY_PATH F:/3-thirdparty)
 ELSE ()
@@ -23,4 +24,5 @@ include_directories(offline util)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_subdirectory(test)
+add_subdirectory(example)
 
